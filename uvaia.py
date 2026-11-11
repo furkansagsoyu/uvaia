@@ -397,7 +397,7 @@ class Window(QWidget):
             source = self.choose_video_source("Kesilecek videoyu seç")
             if source is None:
                 return
-            dialog = VideoTrimDialog(source.name, self)
+            dialog = VideoTrimDialog(source, self)
             try:
                 if dialog.exec() == QDialog.DialogCode.Accepted and dialog.interval:
                     operation = partial(trim_video, source, *dialog.interval)

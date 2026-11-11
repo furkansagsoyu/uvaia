@@ -123,7 +123,8 @@ kaydet** tam çözünürlüklü kareyi kaynak klasöre
 ## Videoyu kesme
 
 Videoyu ana pencereye bırak veya **Videoyu kes…** ile seç. Başlangıç ve bitiş
-zamanlarını girip **Kesiti kaydet**’e bas. Uvaia görüntüyü ve varsa ilk ses
+zamanlarını gir. **Başlangıcı önizle** ve **Bitişi önizle** seçilen zamanlardaki
+kareyi gösterir. **Kesiti kaydet** ile Uvaia görüntüyü ve varsa ilk ses
 parçasını aynı klasöre MP4 olarak kaydeder. Bitiş zamanı videodan uzunsa çıktı
 video sonunda biter.
 

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QThread, Signal, Slot
-from PySide6.QtGui import QCloseEvent, QPixmap
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -17,30 +17,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from video_tools import preview_frame, timestamp_milliseconds
-
-
-class FramePreviewJob(QThread):
-    ready = Signal(bytes)
-    failed = Signal(str)
-
-    def __init__(self, source: Path, timestamp: str, parent: QWidget) -> None:
-        super().__init__(parent)
-        self.source = source
-        self.timestamp = timestamp
-
-    def run(self) -> None:
-        try:
-            self.ready.emit(preview_frame(self.source, self.timestamp))
-        except (OSError, ValueError) as error:
-            self.failed.emit(str(error))
+from video_preview import FramePreview
+from video_tools import timestamp_milliseconds
 
 
 class VideoFrameDialog(QDialog):
     def __init__(self, source: Path, parent: QWidget) -> None:
         super().__init__(parent)
-        self.source = source
-        self.job: FramePreviewJob | None = None
         self.setWindowTitle("Videodan kare al")
         self.setMinimumWidth(370)
 
@@ -56,11 +39,8 @@ class VideoFrameDialog(QDialog):
         form.addRow("&Kare zamanı", self.timestamp)
         layout.addLayout(form)
 
-        self.preview = QLabel()
-        self.preview.setMinimumSize(320, 180)
-        self.preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.preview.setWordWrap(True)
-        self.preview.setAccessibleName("Video karesi önizlemesi")
+        self.preview = FramePreview(source, self)
+        self.preview.busy_changed.connect(self.set_preview_busy)
         layout.addWidget(self.preview)
 
         self.preview_button = QPushButton("Önizle")
@@ -89,42 +69,21 @@ class VideoFrameDialog(QDialog):
         self.preview_button.setEnabled(valid)
 
     def load_preview(self) -> None:
-        if self.job is not None or not self.preview_button.isEnabled():
-            return
-        self.preview.setText("Önizleme hazırlanıyor…")
-        self.preview_button.setEnabled(False)
-        self.timestamp.setEnabled(False)
-        self.save.setEnabled(False)
-        self.cancel.setEnabled(False)
-        self.job = FramePreviewJob(self.source, self.timestamp.text(), self)
-        self.job.ready.connect(self.show_preview)
-        self.job.failed.connect(self.preview.setText)
-        self.job.finished.connect(self.preview_finished)
-        self.job.finished.connect(self.job.deleteLater)
-        self.job.start()
+        if self.preview_button.isEnabled():
+            self.preview.load(self.timestamp.text())
 
-    @Slot(bytes)
-    def show_preview(self, data: bytes) -> None:
-        pixmap = QPixmap()
-        if pixmap.loadFromData(data, "PNG"):
-            self.preview.setPixmap(pixmap)
-        else:
-            self.preview.setText("Önizleme görüntüsü açılamadı.")
-
-    @Slot()
-    def preview_finished(self) -> None:
-        self.job = None
-        self.timestamp.setEnabled(True)
-        self.preview_button.setEnabled(True)
-        self.save.setEnabled(True)
-        self.cancel.setEnabled(True)
+    def set_preview_busy(self, busy: bool) -> None:
+        self.preview_button.setEnabled(not busy)
+        self.timestamp.setEnabled(not busy)
+        self.save.setEnabled(not busy)
+        self.cancel.setEnabled(not busy)
 
     def reject(self) -> None:
-        if self.job is None:
+        if not self.preview.busy:
             super().reject()
 
     def closeEvent(self, event: QCloseEvent) -> None:
-        if self.job is not None:
+        if self.preview.busy:
             event.ignore()
         else:
             super().closeEvent(event)
