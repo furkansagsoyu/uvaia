@@ -45,6 +45,7 @@ from pdf_render import render_pdf_pages
 from pdf_render_dialog import PdfRenderDialog
 from pdf_tools import extract_pages, images_to_pdf, merge_pdfs
 from qr_reader import read_pdf_qr_codes, read_qr_codes
+from video_frame_dialog import VideoFrameDialog
 from video_tools import VIDEO_EXTENSIONS, extract_frame, extract_mp3, mute_video, trim_video
 from video_trim_dialog import VideoTrimDialog
 
@@ -373,14 +374,13 @@ class Window(QWidget):
             source = self.choose_video_source("Kare alacağın videoyu seç")
             if source is None:
                 return
-            timestamp, accepted = QInputDialog.getText(
-                self,
-                "Videodan kare al",
-                f"{source.name}\nKare zamanı (ör. 12,5 saniye için 12,5 veya 00:12.500)",
-                text="0",
-            )
-            if accepted:
-                self.start_job(partial(extract_frame, source, timestamp), "Video karesi hazırlanıyor…")
+            dialog = VideoFrameDialog(source, self)
+            try:
+                if dialog.exec() == QDialog.DialogCode.Accepted:
+                    operation = partial(extract_frame, source, dialog.timestamp.text())
+                    self.start_job(operation, "Video karesi hazırlanıyor…")
+            finally:
+                dialog.deleteLater()
         finally:
             self.set_drag_monitor_enabled(self.job is None)
 

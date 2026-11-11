@@ -110,7 +110,8 @@ kaynak klasöre `video-sessiz.mp4` gibi aynı biçimde bir kopya yazar.
 
 Videoyu ana pencereye bırak ya da **Videodan kare al…** ile seç.
 Kare zamanını saniye veya saat biçiminde gir. Örneğin `12,5` ve
-`00:12.500` aynı zamanı belirtir. Uvaia video karesini kaynak klasöre
+`00:12.500` aynı zamanı belirtir. **Önizle** ile seçtiğin kareyi görebilirsin. **PNG olarak
+kaydet** tam çözünürlüklü kareyi kaynak klasöre
 `video-kare-12.500s.png` adıyla kaydeder.
 
 ## Videoyu kesme

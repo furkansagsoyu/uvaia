@@ -18,10 +18,11 @@ TIMESTAMP = re.compile(r"([0-9]{1,7}(?::[0-9]{1,2}){0,2})(?:[.,]([0-9]{1,3}))?")
 
 def run_ffmpeg(
     source: Path,
-    output: Path,
+    output: Path | str,
     options: tuple[str, ...],
     *,
     seek: str | None = None,
+    timeout: float | None = None,
 ) -> subprocess.CompletedProcess[bytes]:
     try:
         ffmpeg = get_ffmpeg_exe()
@@ -36,7 +37,9 @@ def run_ffmpeg(
     if seek is not None:
         command.extend(("-ss", seek))
     command.extend(("-i", str(source.absolute()), *options, str(output)))
-    return subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    return subprocess.run(
+        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout
+    )
 
 
 def extract_mp3(source: Path) -> Path:
@@ -80,6 +83,29 @@ def parse_clip_range(start: str, end: str) -> tuple[int, int]:
     if finish <= begin:
         raise ValueError("Bitiş zamanı başlangıçtan sonra olmalı.")
     return begin, finish
+
+
+def preview_frame(source: Path, timestamp: str) -> bytes:
+    seek = format_timestamp(timestamp_milliseconds(timestamp))
+    try:
+        process = run_ffmpeg(
+            source,
+            "pipe:1",
+            (
+                "-map", "0:V:0", "-frames:v", "1",
+                "-vf", "scale=320:180:force_original_aspect_ratio=decrease",
+                "-c:v", "png", "-f", "image2pipe",
+            ),
+            seek=seek,
+            timeout=15,
+        )
+    except subprocess.TimeoutExpired as error:
+        raise ValueError("Önizleme zaman aşımına uğradı.") from error
+    if process.returncode:
+        raise ValueError("Videodan önizleme alınamadı.")
+    if not process.stdout:
+        raise ValueError("Bu zamanda video karesi yok. Daha erken bir zaman seç.")
+    return process.stdout
 
 
 def extract_frame(source: Path, timestamp: str) -> Path:
