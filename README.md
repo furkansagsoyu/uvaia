@@ -112,7 +112,9 @@ PDF sekmesinde **Taranmış PDF’yi oku (OCR)…** seçeneğini aç. Tüm belge
 `1, 3-5` gibi sayfaları seç. Uvaia Türkçe ve İngilizce yazıyı yerel olarak
 tanır. **Metin (.txt)** seçeneği `belge-ocr.txt` dosyasını oluşturur.
 **Aranabilir PDF (.pdf)** seçeneği, 300 DPI sayfa görüntüleri ve seçilebilir
-bir metin katmanı içeren `belge-aranabilir.pdf` dosyasını oluşturur.
+bir metin katmanı içeren `belge-aranabilir.pdf` dosyasını oluşturur. İşlenen
+sayfa sayısı tarama sırasında görünür. **İptal et** yarım çıktıyı kaydetmeden
+işlemi durdurur.
 
 Ekran görüntüsü veya fotoğraf için **Görsel** sekmesinde **Görseldeki yazıyı
 oku (OCR)…** seçeneğini kullan. Çıktı `foto-ocr.txt` olarak kaydedilir.

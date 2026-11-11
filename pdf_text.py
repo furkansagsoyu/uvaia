@@ -9,6 +9,7 @@ from typing import BinaryIO
 
 from pypdfium2 import PdfDocument, PdfiumError
 
+from job_progress import JobProgress, tracked_pages
 from output_files import save_new_file
 from pdf_render import open_pdf_document, page_indices
 
@@ -19,11 +20,14 @@ def save_pdf_text(
     destination: Path,
     read_page: Callable[[PdfDocument, int], str],
     empty_message: str,
+    *,
+    progress: JobProgress | None = None,
 ) -> Path:
     def write_text(stream: BinaryIO) -> None:
         found = False
         with closing(open_pdf_document(source)) as document:
-            for index in page_indices(document, selection):
+            pages = page_indices(document, selection)
+            for index in tracked_pages(pages, progress):
                 try:
                     text = read_page(document, index)
                 except (PdfiumError, ValueError) as error:

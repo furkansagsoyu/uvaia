@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QMenu,
     QPlainTextEdit,
+    QProgressBar,
     QPushButton,
     QTabWidget,
     QVBoxLayout,
@@ -44,6 +45,7 @@ from file_order_dialog import FileOrderDialog
 from image_adjust_dialog import ImageAdjustDialog
 from image_conversion import FORMATS, adjust_image, compress_image, convert_image, convert_images
 from image_preview import read_preview_image, to_qimage
+from job_progress import JobCancelled, JobProgress
 from ocr_tools import OCR_DPI, OCR_EXPORT_FORMATS, ocr_image, ocr_pdf
 from orientation_dialog import OrientationDialog
 from output_files import SavedOutputs
@@ -100,6 +102,7 @@ class FileJob(QThread):
     succeeded = Signal(str)
     outputs_ready = Signal(object)
     failed = Signal(str)
+    cancelled = Signal()
 
     def __init__(self, operation: Callable[[], FileResult], parent: QWidget) -> None:
         super().__init__(parent)
@@ -108,6 +111,8 @@ class FileJob(QThread):
     def run(self) -> None:
         try:
             output = self.operation()
+        except JobCancelled:
+            self.cancelled.emit()
         except Image.DecompressionBombError:
             self.failed.emit("Görsel güvenli işlem boyutunu aşıyor.")
         except (OSError, ValueError) as error:
@@ -121,6 +126,16 @@ class FileJob(QThread):
                 self.succeeded.emit(output.message)
             else:
                 self.succeeded.emit(output)
+
+
+class ProgressFileJob(FileJob):
+    progress_changed = Signal(int, int)
+
+    def __init__(self, operation: Callable[[JobProgress], FileResult], parent: QWidget) -> None:
+        super().__init__(lambda: operation(self.progress_context()), parent)
+
+    def progress_context(self) -> JobProgress:
+        return JobProgress(self.progress_changed.emit, self.isInterruptionRequested)
 
 
 class Window(QWidget):
@@ -169,6 +184,19 @@ class Window(QWidget):
         self.status.setObjectName("status")
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
+
+        self.progress_actions = QWidget()
+        progress_layout = QHBoxLayout(self.progress_actions)
+        progress_layout.setContentsMargins(0, 0, 0, 0)
+        self.job_progress = QProgressBar()
+        self.job_progress.setAccessibleName("İşlenen sayfalar")
+        self.job_progress.setFormat("%v / %m sayfa")
+        progress_layout.addWidget(self.job_progress, 1)
+        self.cancel_job_button = QPushButton("İptal et")
+        self.cancel_job_button.clicked.connect(self.cancel_job)
+        progress_layout.addWidget(self.cancel_job_button)
+        self.progress_actions.hide()
+        layout.addWidget(self.progress_actions)
 
         self.output_actions = QWidget()
         output_layout = QHBoxLayout(self.output_actions)
@@ -748,14 +776,19 @@ class Window(QWidget):
         )
 
     def choose_pdf_ocr(self) -> None:
-        self.choose_pdf_export(
-            ocr_pdf,
+        choices = self.choose_pdf_export(
             title="Taranmış PDF’yi oku",
             formats=OCR_EXPORT_FORMATS,
             hint=f"Aranabilir PDF, {OCR_DPI} DPI sayfa görüntülerine metin katmanı ekler.",
             save_label="OCR çıktısını kaydet",
-            status="Taranmış sayfalar okunuyor…",
         )
+        if choices is not None:
+            job = ProgressFileJob(lambda progress: ocr_pdf(*choices, progress=progress), self)
+            job.progress_changed.connect(self.update_job_progress)
+            self.job_progress.setRange(0, 0)
+            self.cancel_job_button.setEnabled(True)
+            self.progress_actions.show()
+            self.begin_job(job, "Taranmış sayfalar okunuyor…")
 
     def run_pdf_page_selection(
         self,
@@ -807,45 +840,43 @@ class Window(QWidget):
             self.set_drag_monitor_enabled(self.job is None)
 
     def choose_pdf_render(self) -> None:
-        self.choose_pdf_export(
-            render_pdf_pages,
+        choices = self.choose_pdf_export(
             title="PDF’yi görsele dönüştür",
             formats=("PNG", "JPG"),
             hint=f"Her sayfa {DPI} DPI ile ayrı bir görsele kaydedilir.",
             save_label="Görselleri kaydet",
-            status="PDF sayfaları görsele dönüştürülüyor…",
         )
+        if choices is not None:
+            self.start_job(
+                partial(render_pdf_pages, *choices), "PDF sayfaları görsele dönüştürülüyor…"
+            )
 
     def choose_pdf_export(
         self,
-        operation: Callable[[Path, str, str], FileResult],
         *,
         title: str,
         formats: tuple[str, ...],
         hint: str,
         save_label: str,
-        status: str,
-    ) -> None:
+    ) -> tuple[Path, str, str] | None:
         if self.job is not None:
-            return
+            return None
         self.set_drag_monitor_enabled(False)
         try:
             source = self.choose_pdf_source()
             if source is None:
-                return
+                return None
             dialog = PdfExportDialog(
                 source.name, self, title=title, formats=formats, hint=hint, save_label=save_label
             )
             try:
                 if dialog.exec() == QDialog.DialogCode.Accepted:
-                    export = partial(
-                        operation, source, dialog.pages.text(), dialog.output_format.currentText()
-                    )
-                    self.start_job(export, status)
+                    return source, dialog.pages.text(), dialog.output_format.currentText()
+                return None
             finally:
                 dialog.deleteLater()
         finally:
-            self.set_drag_monitor_enabled(self.job is None)
+            self.set_drag_monitor_enabled(True)
 
     def convert(self, output_format: str | None, *, scale_percent: int | None = None) -> None:
         if self.job is not None:
@@ -909,20 +940,42 @@ class Window(QWidget):
         *,
         on_success: Callable[[str], None] | None = None,
     ) -> None:
+        self.begin_job(FileJob(operation, self), status, on_success=on_success)
+
+    def begin_job(
+        self, job: FileJob, status: str, *, on_success: Callable[[str], None] | None = None
+    ) -> None:
         self.set_drag_monitor_enabled(False)
         self.show_output_actions(())
         self.status.setText(status)
         self.set_file_controls_enabled(False)
-        self.job = FileJob(operation, self)
-        self.job.succeeded.connect(on_success or self.status.setText)
-        self.job.outputs_ready.connect(self.show_output_actions)
-        self.job.failed.connect(lambda message: self.status.setText(f"İşlem tamamlanamadı: {message}"))
-        self.job.finished.connect(self.job_finished)
-        self.job.finished.connect(self.job.deleteLater)
-        self.job.start()
+        self.job = job
+        job.succeeded.connect(on_success or self.status.setText)
+        job.outputs_ready.connect(self.show_output_actions)
+        job.failed.connect(lambda message: self.status.setText(f"İşlem tamamlanamadı: {message}"))
+        job.cancelled.connect(self.job_cancelled)
+        job.finished.connect(self.job_finished)
+        job.finished.connect(job.deleteLater)
+        job.start()
+
+    @Slot(int, int)
+    def update_job_progress(self, completed: int, total: int) -> None:
+        self.job_progress.setRange(0, total)
+        self.job_progress.setValue(completed)
+
+    def cancel_job(self) -> None:
+        if isinstance(self.job, ProgressFileJob):
+            self.job.requestInterruption()
+            self.cancel_job_button.setEnabled(False)
+            self.status.setText("OCR iptal ediliyor…")
+
+    @Slot()
+    def job_cancelled(self) -> None:
+        self.status.setText("İşlem iptal edildi.")
 
     def job_finished(self) -> None:
         self.job = None
+        self.progress_actions.hide()
         self.set_drag_monitor_enabled(QApplication.activeModalWidget() is None)
         self.set_file_controls_enabled(True)
 
