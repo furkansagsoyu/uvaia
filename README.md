@@ -1,6 +1,6 @@
 # Uvaia
 
-Linux Mint Cinnamon/X11 için yerel görsel dönüştürme uygulaması.
+Linux Mint Cinnamon/X11 için yerel görsel ve PDF araçları.
 
 ## Çalıştırma
 
@@ -32,3 +32,10 @@ Bu kısayol X11 oturumunda çalışır. Uvaia'nın penceresine dosya bırakmak v
 dosya seçiciyi kullanmak da mümkündür.
 
 Sürükle-bırak akışı Nashi'den ilham alır.
+
+## PDF birleştirme
+
+Ana pencerede **PDF birleştir…** düğmesine bas. **PDF ekle…** ile en az iki
+dosya seç, gerekirse **Yukarı** ve **Aşağı** ile sırala, ardından **Birleştir**’e
+bas. Sonuç, listedeki ilk PDF’nin klasörüne `dosya-birlesik.pdf` adıyla yazılır.
+Şifreli PDF’ler bu sürümde desteklenmez.

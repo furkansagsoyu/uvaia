@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import sys
+from collections.abc import Callable
+from functools import partial
 from pathlib import Path
 
 from PIL import Image
@@ -10,6 +12,7 @@ from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QCloseEvent, QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
     QApplication,
+    QDialog,
     QFileDialog,
     QGridLayout,
     QInputDialog,
@@ -30,6 +33,8 @@ from drag_wheel import (
     offers_file_copy,
 )
 from image_conversion import FORMATS, convert_image
+from pdf_dialog import PdfMergeDialog
+from pdf_merge import merge_pdfs
 
 STYLE = """
 QWidget { background: #172321; color: #eff6ed; font-size: 15px; }
@@ -49,30 +54,19 @@ QPushButton:disabled { color: #9ba9a2; background: #283430; }
 """
 
 
-class Conversion(QThread):
-    """Dönüştürmeyi pencereyi dondurmadan yürütür."""
+class FileJob(QThread):
+    """Dosya işlemini pencereyi dondurmadan yürütür."""
 
     succeeded = Signal(str)
     failed = Signal(str)
 
-    def __init__(
-        self,
-        source: Path,
-        output_format: str | None,
-        parent: QWidget,
-        *,
-        scale_percent: int | None = None,
-    ) -> None:
+    def __init__(self, operation: Callable[[], Path], parent: QWidget) -> None:
         super().__init__(parent)
-        self.source = source
-        self.output_format = output_format
-        self.scale_percent = scale_percent
+        self.operation = operation
 
     def run(self) -> None:
         try:
-            output = convert_image(
-                self.source, self.output_format, scale_percent=self.scale_percent
-            )
+            output = self.operation()
         except Image.DecompressionBombError:
             self.failed.emit("Görsel güvenli işlem boyutunu aşıyor.")
         except (OSError, ValueError) as error:
@@ -87,7 +81,7 @@ class Window(QWidget):
     def __init__(self) -> None:
         super().__init__()
         self.source: Path | None = None
-        self.job: Conversion | None = None
+        self.job: FileJob | None = None
         self.monitor: WheelMonitor | None = None
         self.setWindowTitle("Uvaia")
         self.setAcceptDrops(True)
@@ -128,6 +122,10 @@ class Window(QWidget):
         wheel_layout.addWidget(resize_button, 3, 0, 1, 3)
         self.wheel.hide()
         layout.addWidget(self.wheel)
+
+        self.pdf_button = QPushButton("PDF birleştir…")
+        self.pdf_button.clicked.connect(self.choose_pdfs)
+        layout.addWidget(self.pdf_button)
 
         self.status = QLabel()
         self.status.setObjectName("status")
@@ -173,47 +171,66 @@ class Window(QWidget):
             self.select_image(source)
             accept_copy(event)
 
+    def set_drag_monitor_enabled(self, enabled: bool) -> None:
+        if self.monitor is not None:
+            self.monitor.enabled = enabled
+            if not enabled:
+                self.monitor.wheel.hide()
+
     def choose_scale(self) -> None:
         if self.source is None or self.job is not None:
             return
-        if self.monitor is not None:
-            self.monitor.enabled = False
-            self.monitor.wheel.hide()
+        self.set_drag_monitor_enabled(False)
         try:
             percent, accepted = QInputDialog.getInt(
                 self, "Görseli küçült", "Yeni boyut (%)", 50, 1, 99, 1
             )
         finally:
-            if self.monitor is not None:
-                self.monitor.enabled = True
+            self.set_drag_monitor_enabled(True)
         if accepted:
             self.convert(None, scale_percent=percent)
+
+    def choose_pdfs(self) -> None:
+        if self.job is not None:
+            return
+        self.set_drag_monitor_enabled(False)
+        dialog = PdfMergeDialog(self)
+        try:
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                self.start_job(partial(merge_pdfs, dialog.paths()), "PDF’ler birleştiriliyor…")
+        finally:
+            dialog.deleteLater()
+            self.set_drag_monitor_enabled(self.job is None)
 
     def convert(self, output_format: str | None, *, scale_percent: int | None = None) -> None:
         if self.source is None or self.job is not None:
             return
-        if self.monitor is not None:
-            self.monitor.enabled = False
-            self.monitor.wheel.hide()
         action = "Küçültülüyor…" if scale_percent is not None else "Dönüştürülüyor…"
-        self.status.setText(action)
-        self.pick.setEnabled(False)
-        self.wheel.setEnabled(False)
-        self.job = Conversion(
-            self.source, output_format, self, scale_percent=scale_percent
+        operation = partial(
+            convert_image, self.source, output_format, scale_percent=scale_percent
         )
+        self.start_job(operation, action)
+
+    def start_job(self, operation: Callable[[], Path], status: str) -> None:
+        self.set_drag_monitor_enabled(False)
+        self.status.setText(status)
+        self.set_file_controls_enabled(False)
+        self.job = FileJob(operation, self)
         self.job.succeeded.connect(lambda name: self.status.setText(f"Kaydedildi: {name}"))
         self.job.failed.connect(lambda message: self.status.setText(f"İşlem tamamlanamadı: {message}"))
-        self.job.finished.connect(self.conversion_finished)
+        self.job.finished.connect(self.job_finished)
         self.job.finished.connect(self.job.deleteLater)
         self.job.start()
 
-    def conversion_finished(self) -> None:
+    def job_finished(self) -> None:
         self.job = None
-        if self.monitor is not None:
-            self.monitor.enabled = True
-        self.pick.setEnabled(True)
-        self.wheel.setEnabled(True)
+        self.set_drag_monitor_enabled(True)
+        self.set_file_controls_enabled(True)
+
+    def set_file_controls_enabled(self, enabled: bool) -> None:
+        self.pick.setEnabled(enabled)
+        self.wheel.setEnabled(enabled)
+        self.pdf_button.setEnabled(enabled)
 
     def closeEvent(self, event: QCloseEvent) -> None:
         if self.job is not None:

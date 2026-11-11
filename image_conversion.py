@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-from tempfile import NamedTemporaryFile
 
 from PIL import Image, ImageOps
+
+from output_files import save_new_file
 
 FORMATS = {"PNG": ".png", "JPG": ".jpg", "WebP": ".webp"}
 SOURCE_FORMATS = {"PNG": "PNG", "JPEG": "JPG", "WEBP": "WebP"}
@@ -37,15 +38,6 @@ def convert_image(
         background.paste(image, mask=image.getchannel("A"))
         image = background
 
-    with NamedTemporaryFile(dir=source.parent, prefix=".uvaia-") as temporary:
-        image.save(temporary, format="JPEG" if output_format == "JPG" else output_format)
-        temporary.flush()
-        output = source.with_name(f"{stem}{extension}")
-        index = 1
-        while True:
-            try:
-                output.hardlink_to(temporary.name)
-                return output
-            except FileExistsError:
-                index += 1
-                output = source.with_name(f"{stem}-{index}{extension}")
+    destination = source.with_name(f"{stem}{extension}")
+    pillow_format = "JPEG" if output_format == "JPG" else output_format
+    return save_new_file(destination, lambda stream: image.save(stream, format=pillow_format))
