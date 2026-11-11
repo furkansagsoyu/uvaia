@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
 
 from Xlib import error as x11_error
 
+from archive_tools import create_zip, extract_zip
 from compression_dialog import CompressionDialog
 from crop_dialog import CropDialog
 from drag_wheel import (
@@ -165,8 +166,9 @@ class Window(QWidget):
         title.setObjectName("title")
         layout.addWidget(title)
 
-        self.drop_zone = QLabel("Görselleri, PDF’yi veya videoyu bırak")
+        self.drop_zone = QLabel("Görsel, PDF, video veya ZIP bırak")
         self.drop_zone.setObjectName("dropZone")
+        self.drop_zone.setTextFormat(Qt.TextFormat.PlainText)
         self.drop_zone.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.drop_zone.setWordWrap(True)
         layout.addWidget(self.drop_zone)
@@ -177,12 +179,15 @@ class Window(QWidget):
         self.image_tab = QWidget()
         self.pdf_tab = QWidget()
         self.video_tab = QWidget()
+        self.archive_tab = QWidget()
         self.tools.addTab(self.image_tab, "Görsel")
         self.tools.addTab(self.pdf_tab, "PDF")
         self.tools.addTab(self.video_tab, "Video")
+        self.tools.addTab(self.archive_tab, "Arşiv")
         self.build_image_tools()
         self.build_pdf_tools()
         self.build_video_tools()
+        self.build_archive_tools()
 
         self.status = QLabel()
         self.status.setObjectName("status")
@@ -332,6 +337,17 @@ class Window(QWidget):
         layout.addWidget(self.video_speed_button)
         layout.addStretch()
 
+    def build_archive_tools(self) -> None:
+        layout = QVBoxLayout(self.archive_tab)
+        self.zip_create_button = QPushButton("ZIP oluştur…")
+        self.zip_create_button.clicked.connect(self.choose_zip_create)
+        layout.addWidget(self.zip_create_button)
+
+        self.zip_extract_button = QPushButton("ZIP’i aç…")
+        self.zip_extract_button.clicked.connect(self.choose_zip_extract)
+        layout.addWidget(self.zip_extract_button)
+        layout.addStretch()
+
     def start_drag_monitor(self) -> None:
         if QApplication.platformName() != "xcb":
             return
@@ -342,7 +358,7 @@ class Window(QWidget):
             return
         wheel.file_dropped.connect(self.convert_drop)
         QApplication.instance().aboutToQuit.connect(self.monitor.shutdown)
-        self.drop_zone.setText("Görselleri, PDF’yi veya videoyu bırak. Görsel çarkı için Shift’e bas.")
+        self.drop_zone.setText("Görsel, PDF, video veya ZIP bırak. Görsel çarkı için Shift’e bas.")
 
     def convert_drop(self, paths: tuple[Path, ...], output_format: str) -> None:
         if self.job is not None:
@@ -380,7 +396,7 @@ class Window(QWidget):
         return True
 
     def select_batch(self, paths: tuple[Path, ...]) -> bool:
-        if any(path.suffix.lower() in (*VIDEO_EXTENSIONS, ".pdf") for path in paths):
+        if any(path.suffix.lower() in (*VIDEO_EXTENSIONS, ".pdf", ".zip") for path in paths):
             self.status.setText("Toplu dönüştürme için yalnızca görselleri seç.")
             return False
         self.source = None
@@ -403,6 +419,8 @@ class Window(QWidget):
             self.select_video(source)
         elif extension == ".pdf":
             self.select_pdf(source)
+        elif extension == ".zip":
+            self.select_archive(source)
         else:
             self.select_image(source)
 
@@ -437,6 +455,53 @@ class Window(QWidget):
         self.wheel.hide()
         self.audio_button.setText("Videodan MP3 çıkar…")
         self.clear_result()
+
+    def select_archive(self, source: Path) -> None:
+        self.batch_sources = ()
+        self.source = source
+        self.tools.setCurrentWidget(self.archive_tab)
+        self.drop_zone.setText(source.name)
+        self.wheel.hide()
+        self.audio_button.setText("Videodan MP3 çıkar…")
+        self.clear_result()
+
+    def choose_zip_create(self) -> None:
+        if self.job is not None:
+            return
+        self.set_drag_monitor_enabled(False)
+        try:
+            filenames, _ = QFileDialog.getOpenFileNames(self, "ZIP’e eklenecek dosyaları seç")
+            sources = tuple(dict.fromkeys(Path(filename) for filename in filenames))
+            if sources:
+                self.start_progress_job(
+                    lambda progress: create_zip(sources, progress=progress),
+                    "ZIP hazırlanıyor…",
+                    unit="dosya",
+                )
+        finally:
+            self.set_drag_monitor_enabled(self.job is None)
+
+    def choose_zip_extract(self) -> None:
+        if self.job is not None:
+            return
+        self.set_drag_monitor_enabled(False)
+        try:
+            source = self.source
+            if source is None or source.suffix.lower() != ".zip":
+                filename, _ = QFileDialog.getOpenFileName(
+                    self, "Açılacak ZIP’i seç", filter="ZIP (*.zip *.ZIP)"
+                )
+                if not filename:
+                    return
+                source = Path(filename)
+                self.select_archive(source)
+            self.start_progress_job(
+                lambda progress: extract_zip(source, progress=progress),
+                "ZIP açılıyor…",
+                unit="öğe",
+            )
+        finally:
+            self.set_drag_monitor_enabled(self.job is None)
 
     def choose_video_source(self, title: str) -> Path | None:
         source = self.source
@@ -1105,6 +1170,8 @@ class Window(QWidget):
         self.frame_button.setEnabled(enabled)
         self.trim_button.setEnabled(enabled)
         self.video_speed_button.setEnabled(enabled)
+        self.zip_create_button.setEnabled(enabled)
+        self.zip_extract_button.setEnabled(enabled)
         self.qr_button.setEnabled(enabled)
         self.image_ocr_button.setEnabled(enabled)
         self.metadata_button.setEnabled(enabled)

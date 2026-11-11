@@ -10,7 +10,7 @@ python3 -m venv .venv
 .venv/bin/python uvaia.py
 ```
 
-Araçlar **Görsel**, **PDF** ve **Video** sekmelerinde. Ana pencereye dosya
+Araçlar **Görsel**, **PDF**, **Video** ve **Arşiv** sekmelerinde. Ana pencereye dosya
 bıraktığında Uvaia ilgili sekmeyi açar. Birden fazla PDF bırakmak birleştirme
 listesini açar.
 
@@ -201,3 +201,14 @@ her kodun bulunduğu sayfa numarası gösterilir.
 **Video hızını değiştir…** ile 0,50× ve 2,00× arasında bir hız seç.
 Uvaia görüntünün hızını ve varsa ilk ses parçasının temposunu birlikte
 değiştirir. Çıktı kaynak klasöre `video-hiz-1.50x.mp4` gibi bir adla yazılır.
+
+## ZIP arşivleri
+
+**Arşiv → ZIP oluştur…** ile seçilen dosyaları ilk dosyanın klasöründe
+`dosya-arsiv.zip` olarak paketle. Bir ZIP bırakıp **ZIP’i aç…** seçerek
+içeriği arşivin yanındaki yeni bir klasöre çıkar. Çıktı adları çakışırsa numara
+eklenir. İptal edilen ZIP işlemlerinin yarım çıktıları temizlenir.
+
+ZIP açma, en fazla 10.000 öğe ve 8 GiB açılmış içerik kabul eder.
+Nemo sağ tık menüsüne ZIP desteği eklemek için `install_desktop.py` komutunu
+yeniden çalıştırabilirsin.
