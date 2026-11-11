@@ -1,4 +1,4 @@
-"""Video kesitlerini, kareleri ve sesi yerel olarak dışa aktarır."""
+"""Video kesitlerini, kareleri, sesi ve sessiz kopyaları dışa aktarır."""
 
 from __future__ import annotations
 
@@ -11,7 +11,8 @@ from imageio_ffmpeg import get_ffmpeg_exe
 
 from output_files import save_new_file
 
-VIDEO_EXTENSIONS = (".mp4", ".mkv", ".mov", ".webm", ".avi")
+VIDEO_CONTAINERS = {".mp4": "mp4", ".mkv": "matroska", ".mov": "mov", ".webm": "webm", ".avi": "avi"}
+VIDEO_EXTENSIONS = tuple(VIDEO_CONTAINERS)
 TIMESTAMP = re.compile(r"([0-9]{1,7}(?::[0-9]{1,2}){0,2})(?:[.,]([0-9]{1,3}))?")
 
 
@@ -131,4 +132,27 @@ def trim_video(source: Path, start: int, end: int) -> Path:
 
     finish = format_timestamp(end)
     destination = source.with_name(f"{source.stem}-kesit-{seek}s-{finish}s.mp4")
+    return save_new_file(destination, encode)
+
+
+def mute_video(source: Path) -> Path:
+    """Video akışlarını yeniden kodlamadan sessiz bir kopya yazar."""
+    extension = source.suffix.lower()
+    container = VIDEO_CONTAINERS.get(extension)
+    if container is None:
+        raise ValueError("Sessiz kopya için MP4, MKV, MOV, WebM veya AVI seç.")
+
+    def encode(stream: BinaryIO) -> None:
+        output = Path(stream.name)
+        process = run_ffmpeg(
+            source,
+            output,
+            ("-map", "0:V", "-map", "0:s?", "-map", "0:t?", "-c", "copy", "-an", "-f", container),
+        )
+        if process.returncode or output.stat().st_size == 0:
+            if b"matches no streams" in process.stderr:
+                raise ValueError("Dosyada video akışı bulunamadı.")
+            raise ValueError(f"Sessiz video kopyası kaydedilemedi: {source.name}")
+
+    destination = source.with_name(f"{source.stem}-sessiz{extension}")
     return save_new_file(destination, encode)

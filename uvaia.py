@@ -45,7 +45,7 @@ from pdf_render import render_pdf_pages
 from pdf_render_dialog import PdfRenderDialog
 from pdf_tools import extract_pages, images_to_pdf, merge_pdfs
 from qr_reader import read_pdf_qr_codes, read_qr_codes
-from video_tools import VIDEO_EXTENSIONS, extract_frame, extract_mp3, trim_video
+from video_tools import VIDEO_EXTENSIONS, extract_frame, extract_mp3, mute_video, trim_video
 from video_trim_dialog import VideoTrimDialog
 
 STYLE = """
@@ -213,6 +213,10 @@ class Window(QWidget):
         self.audio_button.clicked.connect(self.choose_video)
         layout.addWidget(self.audio_button)
 
+        self.mute_button = QPushButton("Video sesini kaldır…")
+        self.mute_button.clicked.connect(self.choose_mute)
+        layout.addWidget(self.mute_button)
+
         self.frame_button = QPushButton("Videodan kare al…")
         self.frame_button.clicked.connect(self.choose_frame)
         layout.addWidget(self.frame_button)
@@ -341,13 +345,23 @@ class Window(QWidget):
         return source
 
     def choose_video(self) -> None:
+        self.run_video_action("Sesini çıkaracağın videoyu seç", extract_mp3, "MP3 hazırlanıyor…")
+
+    def choose_mute(self) -> None:
+        self.run_video_action(
+            "Sessiz kopyası oluşturulacak videoyu seç", mute_video, "Sessiz video hazırlanıyor…"
+        )
+
+    def run_video_action(
+        self, title: str, operation: Callable[[Path], Path], status: str
+    ) -> None:
         if self.job is not None:
             return
         self.set_drag_monitor_enabled(False)
         try:
-            source = self.choose_video_source("Sesini çıkaracağın videoyu seç")
+            source = self.choose_video_source(title)
             if source is not None:
-                self.start_job(partial(extract_mp3, source), "MP3 hazırlanıyor…")
+                self.start_job(partial(operation, source), status)
         finally:
             self.set_drag_monitor_enabled(self.job is None)
 
@@ -701,6 +715,7 @@ class Window(QWidget):
         self.pdf_qr_button.setEnabled(enabled)
         self.images_pdf_button.setEnabled(enabled)
         self.audio_button.setEnabled(enabled)
+        self.mute_button.setEnabled(enabled)
         self.frame_button.setEnabled(enabled)
         self.trim_button.setEnabled(enabled)
         self.qr_button.setEnabled(enabled)

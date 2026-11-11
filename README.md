@@ -100,6 +100,12 @@ videolar için uygulama hata gösterir.
 
 FFmpeg, Linux Mint’te `imageio-ffmpeg` bağımlılığıyla kurulur.
 
+## Video sesini kaldırma
+
+Videoyu ana pencereye bırak veya Video sekmesinde **Video sesini kaldır…**
+ile seç. Uvaia görüntüyü yeniden kodlamadan, tüm ses parçalarını çıkarır ve
+kaynak klasöre `video-sessiz.mp4` gibi aynı biçimde bir kopya yazar.
+
 ## Videodan kare alma
 
 Videoyu ana pencereye bırak ya da **Videodan kare al…** ile seç.
