@@ -30,6 +30,10 @@ olarak yazar.
 piksel boyutlarını korur. Çıktı kaynak dosyadan küçükse
 `foto-sikistirilmis.webp` gibi bir kopya kaydeder.
 
+**Döndür ve yansıt…** ile görseli 90 derece sağa veya sola döndür, yatay veya
+dikey yansıt ve sonucu önizle. **Kopyayı kaydet** değişiklikleri
+`foto-duzenlenmis.png` gibi yeni bir dosyaya yazar.
+
 ## Cinnamon ve Nemo menülerine ekleme
 
 ```bash

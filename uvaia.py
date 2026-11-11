@@ -10,7 +10,7 @@ from pathlib import Path
 
 from PIL import Image
 from PySide6.QtCore import Qt, QThread, QTimer, Signal, Slot
-from PySide6.QtGui import QCloseEvent, QDragEnterEvent, QDropEvent
+from PySide6.QtGui import QCloseEvent, QDragEnterEvent, QDropEvent, QImage
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -39,6 +39,7 @@ from drag_wheel import (
 )
 from image_conversion import FORMATS, compress_image, convert_image, convert_images
 from file_order_dialog import FileOrderDialog
+from orientation_dialog import OrientationDialog
 from pdf_tools import extract_pages, images_to_pdf, merge_pdfs
 from qr_reader import read_qr_codes
 from video_tools import VIDEO_EXTENSIONS, extract_frame, extract_mp3, trim_video
@@ -136,6 +137,9 @@ class Window(QWidget):
         self.compress_button = QPushButton("Görseli sıkıştır…")
         self.compress_button.clicked.connect(self.choose_compression)
         wheel_layout.addWidget(self.compress_button, 5, 0, 1, 3)
+        self.orientation_button = QPushButton("Döndür ve yansıt…")
+        self.orientation_button.clicked.connect(self.choose_orientation)
+        wheel_layout.addWidget(self.orientation_button, 6, 0, 1, 3)
         self.wheel.hide()
         layout.addWidget(self.wheel)
 
@@ -221,6 +225,7 @@ class Window(QWidget):
         self.resize_button.hide()
         self.crop_button.hide()
         self.compress_button.hide()
+        self.orientation_button.hide()
         self.audio_button.setText("Videodan MP3 çıkar…")
         self.status.clear()
         return True
@@ -240,6 +245,7 @@ class Window(QWidget):
         self.resize_button.show()
         self.crop_button.show()
         self.compress_button.show()
+        self.orientation_button.show()
         self.drop_zone.setText(source.name)
         self.wheel.show()
         self.audio_button.setText("Videodan MP3 çıkar…")
@@ -356,17 +362,21 @@ class Window(QWidget):
         if accepted:
             self.convert(None, scale_percent=percent)
 
+    def image_preview(self, source: Path) -> QImage | None:
+        try:
+            return read_preview(source)
+        except Image.DecompressionBombError:
+            self.status.setText("Görsel güvenli işlem boyutunu aşıyor.")
+        except (OSError, ValueError) as error:
+            self.status.setText(f"Önizleme açılamadı: {error}")
+        return None
+
     def choose_crop(self) -> None:
         source = self.source
         if source is None or self.job is not None:
             return
-        try:
-            preview = read_preview(source)
-        except Image.DecompressionBombError:
-            self.status.setText("Görsel güvenli işlem boyutunu aşıyor.")
-            return
-        except (OSError, ValueError) as error:
-            self.status.setText(f"Önizleme açılamadı: {error}")
+        preview = self.image_preview(source)
+        if preview is None:
             return
 
         self.set_drag_monitor_enabled(False)
@@ -377,6 +387,24 @@ class Window(QWidget):
                 if bounds is not None:
                     operation = partial(convert_image, source, None, crop_bounds=bounds)
                     self.start_job(operation, "Görsel kırpılıyor…")
+        finally:
+            dialog.deleteLater()
+            self.set_drag_monitor_enabled(self.job is None)
+
+    def choose_orientation(self) -> None:
+        source = self.source
+        if source is None or self.job is not None:
+            return
+        preview = self.image_preview(source)
+        if preview is None:
+            return
+
+        self.set_drag_monitor_enabled(False)
+        dialog = OrientationDialog(preview, self)
+        try:
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                operation = partial(convert_image, source, None, orientation=dialog.orientation)
+                self.start_job(operation, "Düzenlenen görsel kaydediliyor…")
         finally:
             dialog.deleteLater()
             self.set_drag_monitor_enabled(self.job is None)

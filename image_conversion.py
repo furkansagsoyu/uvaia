@@ -1,7 +1,8 @@
-"""Görselleri kaynak dosyayı koruyarak dönüştürür, küçültür ve kırpar."""
+"""Görselleri kaynak dosyayı koruyarak düzenler ve dönüştürür."""
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO
 
@@ -12,6 +13,25 @@ from output_files import save_new_file
 FORMATS = {"PNG": ".png", "JPG": ".jpg", "WebP": ".webp"}
 SOURCE_FORMATS = {"PNG": "PNG", "JPEG": "JPG", "WEBP": "WebP"}
 CropBounds = tuple[float, float, float, float]
+ROTATIONS = (None, Image.Transpose.ROTATE_270, Image.Transpose.ROTATE_180, Image.Transpose.ROTATE_90)
+
+
+@dataclass(frozen=True)
+class Orientation:
+    """Önce saat yönünde dönüşü, ardından yatay yansıtmayı uygular."""
+
+    turns: int = 0
+    mirrored: bool = False
+
+    def rotate(self, turns: int) -> Orientation:
+        direction = -turns if self.mirrored else turns
+        return Orientation((self.turns + direction) % 4, self.mirrored)
+
+    def flip_horizontal(self) -> Orientation:
+        return Orientation(self.turns, not self.mirrored)
+
+    def flip_vertical(self) -> Orientation:
+        return Orientation((self.turns + 2) % 4, not self.mirrored)
 
 
 def read_still_image(source: Path) -> tuple[Image.Image, str | None]:
@@ -33,6 +53,7 @@ def convert_image(
     *,
     scale_percent: int | None = None,
     crop_bounds: CropBounds | None = None,
+    orientation: Orientation | None = None,
 ) -> Path:
     """Tamamlanan çıktıyı boş bir ada kaydeder."""
     if scale_percent is not None and not 1 <= scale_percent <= 99:
@@ -59,6 +80,14 @@ def convert_image(
         bottom_edge = max(y + 1, round(bottom * image.height))
         image = image.crop((x, y, right_edge, bottom_edge))
         stem = f"{stem}-kirpilmis"
+
+    if orientation is not None:
+        rotation = ROTATIONS[orientation.turns]
+        if rotation is not None:
+            image = image.transpose(rotation)
+        if orientation.mirrored:
+            image = ImageOps.mirror(image)
+        stem = f"{stem}-duzenlenmis"
 
     if output_format == "JPG":
         image = flatten_on_white(image)
