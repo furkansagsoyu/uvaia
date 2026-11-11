@@ -34,7 +34,7 @@ from drag_wheel import (
 )
 from image_conversion import FORMATS, convert_image
 from pdf_dialog import PdfMergeDialog
-from pdf_merge import merge_pdfs
+from pdf_tools import extract_pages, merge_pdfs
 from video_audio import VIDEO_EXTENSIONS, extract_mp3
 
 STYLE = """
@@ -97,7 +97,7 @@ class Window(QWidget):
         title.setObjectName("title")
         layout.addWidget(title)
 
-        self.drop_zone = QLabel("Bir görseli veya videoyu buraya bırak")
+        self.drop_zone = QLabel("Bir görsel, PDF veya video bırak")
         self.drop_zone.setObjectName("dropZone")
         self.drop_zone.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.drop_zone.setWordWrap(True)
@@ -128,6 +128,10 @@ class Window(QWidget):
         self.pdf_button.clicked.connect(self.choose_pdfs)
         layout.addWidget(self.pdf_button)
 
+        self.pages_button = QPushButton("PDF’den sayfa çıkar…")
+        self.pages_button.clicked.connect(self.choose_pages)
+        layout.addWidget(self.pages_button)
+
         self.audio_button = QPushButton("Videodan MP3 çıkar…")
         self.audio_button.clicked.connect(self.choose_video)
         layout.addWidget(self.audio_button)
@@ -147,7 +151,7 @@ class Window(QWidget):
             return
         wheel.file_dropped.connect(self.convert_drop)
         QApplication.instance().aboutToQuit.connect(self.monitor.shutdown)
-        self.drop_zone.setText("Görsel veya video bırak. Görsel çarkı için Shift’e bas.")
+        self.drop_zone.setText("Görsel, PDF veya video bırak. Görsel çarkı için Shift’e bas.")
 
     def convert_drop(self, source: Path, output_format: str) -> None:
         self.select_image(source)
@@ -161,8 +165,11 @@ class Window(QWidget):
             self.select_file(Path(filename))
 
     def select_file(self, source: Path) -> None:
-        if source.suffix.lower() in VIDEO_EXTENSIONS:
+        extension = source.suffix.lower()
+        if extension in VIDEO_EXTENSIONS:
             self.select_video(source)
+        elif extension == ".pdf":
+            self.select_pdf(source)
         else:
             self.select_image(source)
 
@@ -178,6 +185,13 @@ class Window(QWidget):
         self.drop_zone.setText(source.name)
         self.wheel.hide()
         self.audio_button.setText("MP3 olarak kaydet")
+        self.status.clear()
+
+    def select_pdf(self, source: Path) -> None:
+        self.source = source
+        self.drop_zone.setText(source.name)
+        self.wheel.hide()
+        self.audio_button.setText("Videodan MP3 çıkar…")
         self.status.clear()
 
     def choose_video(self) -> None:
@@ -240,6 +254,31 @@ class Window(QWidget):
             dialog.deleteLater()
             self.set_drag_monitor_enabled(self.job is None)
 
+    def choose_pages(self) -> None:
+        if self.job is not None:
+            return
+        source = self.source
+        self.set_drag_monitor_enabled(False)
+        try:
+            if source is None or source.suffix.lower() != ".pdf":
+                filename, _ = QFileDialog.getOpenFileName(
+                    self, "PDF seç", filter="PDF (*.pdf *.PDF)"
+                )
+                if not filename:
+                    return
+                source = Path(filename)
+                self.select_pdf(source)
+
+            selection, accepted = QInputDialog.getText(
+                self,
+                "PDF’den sayfa çıkar",
+                f"{source.name}\nSayfa numaraları veya aralıkları (ör. 1, 3-5)",
+            )
+            if accepted:
+                self.start_job(partial(extract_pages, source, selection), "Sayfalar çıkarılıyor…")
+        finally:
+            self.set_drag_monitor_enabled(self.job is None)
+
     def convert(self, output_format: str | None, *, scale_percent: int | None = None) -> None:
         if self.source is None or self.job is not None:
             return
@@ -269,6 +308,7 @@ class Window(QWidget):
         self.pick.setEnabled(enabled)
         self.wheel.setEnabled(enabled)
         self.pdf_button.setEnabled(enabled)
+        self.pages_button.setEnabled(enabled)
         self.audio_button.setEnabled(enabled)
 
     def closeEvent(self, event: QCloseEvent) -> None:

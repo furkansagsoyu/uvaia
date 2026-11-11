@@ -40,6 +40,13 @@ dosya seç, gerekirse **Yukarı** ve **Aşağı** ile sırala, ardından **Birle
 bas. Sonuç, listedeki ilk PDF’nin klasörüne `dosya-birlesik.pdf` adıyla yazılır.
 Şifreli PDF’ler bu sürümde desteklenmez.
 
+## PDF’den sayfa çıkarma
+
+PDF’yi ana pencereye bırak ve **PDF’den sayfa çıkar…** düğmesine bas. Dosya
+bırakmadan da aynı düğmeyle bir PDF seçebilirsin. `1, 3-5` gibi sayfa numaraları
+veya aralıkları yaz. Uvaia sayfaları girdiğin sırayla, kaynak PDF’nin klasöründeki
+`dosya-sayfalar.pdf` dosyasına kaydeder.
+
 ## Videodan MP3 çıkarma
 
 MP4, MKV, MOV, WebM veya AVI dosyasını ana pencereye bırak ve **MP3 olarak
