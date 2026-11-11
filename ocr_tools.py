@@ -16,7 +16,7 @@ from pypdf.errors import PdfReadError
 from pypdfium2 import PdfDocument
 
 from image_conversion import flatten_on_white, read_still_image
-from job_progress import JobCancelled, JobProgress, tracked_pages
+from job_progress import JobCancelled, JobProgress, tracked_items
 from output_files import save_new_file
 from pdf_render import open_pdf_document, page_image, page_indices
 from pdf_text import save_pdf_text
@@ -125,7 +125,7 @@ def save_searchable_pdf(
 ) -> Path:
     with closing(open_pdf_document(source)) as document, PdfWriter() as writer:
         pages = page_indices(document, selection)
-        for index in tracked_pages(pages, progress):
+        for index in tracked_items(pages, progress):
             try:
                 with page_image(document, index, scale=OCR_DPI / 72) as image:
                     data = run_tesseract(

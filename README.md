@@ -20,6 +20,8 @@ düğmesini kullan.
 kaydedilir. Aynı isimde bir dosya varsa numaralı bir ad kullanılır. JPG çıktısında
 şeffaf alanlar beyaz olur. Toplu seçimde her çıktı kendi kaynak klasörüne
 kaydedilir. Bir dosya hata verirse diğerleri işlenir ve sonuç özeti gösterilir.
+Toplu dönüştürmede ilerleme görünür. **İptal et**, üzerinde çalışılan dosya
+bitince işlemi durdurur. Kaydedilen çıktıları açmaya devam edebilirsin.
 
 İşlem sonunda **Çıktıyı aç** ile tek dosyayı varsayılan uygulamada açabilir,
 **Çıktı klasörünü aç** ile dosyanın bulunduğu klasöre gidebilirsin. Çıktılar
@@ -130,6 +132,7 @@ seçim yaz. Çıktı kaynak klasöre `belge-dondurulmus.pdf` olarak kaydedilir.
 PDF sekmesinde **PDF’yi görsele dönüştür…** seçeneğini aç. **Sayfalar** alanını
 tüm belge için boş bırak veya `1, 3-5` gibi bir seçim yaz. Uvaia her sayfayı
 144 DPI ile kaynak klasöre `belge-sayfa-3.png` gibi ayrı bir dosya olarak yazar.
+İptal isteği işlenen sayfa bitince uygulanır. Kaydedilmiş sayfalar korunur.
 
 ## Videoyu MP4 veya WebM’ye dönüştürme
 

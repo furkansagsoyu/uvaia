@@ -8,6 +8,7 @@ from typing import BinaryIO
 
 from PIL import Image, ImageEnhance, ImageOps
 
+from job_progress import JobCancelled, JobProgress, tracked_items
 from output_files import SavedOutputs, save_new_file
 
 FORMATS = {"PNG": ".png", "JPG": ".jpg", "WebP": ".webp"}
@@ -131,15 +132,26 @@ def adjust_image(source: Path, settings: ImageAdjustments) -> Path:
     return save_image_copy(settings.apply(image), destination, output_format)
 
 
-def convert_images(sources: tuple[Path, ...], output_format: str) -> SavedOutputs:
+def convert_images(
+    sources: tuple[Path, ...],
+    output_format: str,
+    *,
+    progress: JobProgress | None = None,
+) -> SavedOutputs:
     """Hatalı dosyaları atlayarak seçilen görselleri sırayla dönüştürür."""
     saved: list[Path] = []
     failed: list[str] = []
-    for source in sources:
-        try:
-            saved.append(convert_image(source, output_format))
-        except (OSError, ValueError, Image.DecompressionBombError):
-            failed.append(source.name)
+    try:
+        for source in tracked_items(sources, progress):
+            try:
+                saved.append(convert_image(source, output_format))
+            except (OSError, ValueError, Image.DecompressionBombError):
+                failed.append(source.name)
+    except JobCancelled:
+        if not saved:
+            raise
+        message = f"İşlem iptal edildi. {len(saved)} görsel kaydedildi."
+        return SavedOutputs(tuple(saved), message)
 
     if failed:
         issue = f"{len(failed)} dosya dönüştürülemedi. İlk hata: {failed[0]}"

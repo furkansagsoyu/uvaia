@@ -11,6 +11,7 @@ import pypdfium2 as pdfium
 from PIL import Image
 
 from image_conversion import FORMATS
+from job_progress import JobCancelled, JobProgress, tracked_items
 from output_files import SavedOutputs, save_new_file
 from pdf_tools import parse_pages
 
@@ -52,7 +53,13 @@ def page_image(
         raise ValueError(f"{index + 1}. sayfanın görüntüsü oluşturulamadı.") from error
 
 
-def render_pdf_pages(source: Path, selection: str, output_format: str) -> Path | SavedOutputs:
+def render_pdf_pages(
+    source: Path,
+    selection: str,
+    output_format: str,
+    *,
+    progress: JobProgress | None = None,
+) -> Path | SavedOutputs:
     if output_format not in ("PNG", "JPG"):
         raise ValueError("PNG veya JPG biçimini seç.")
 
@@ -60,26 +67,34 @@ def render_pdf_pages(source: Path, selection: str, output_format: str) -> Path |
         pages = page_indices(document, selection)
         pillow_format = "JPEG" if output_format == "JPG" else output_format
         saved: list[Path] = []
-        for index in pages:
-            try:
-                with page_image(document, index) as image:
-                    if pillow_format == "JPEG" and image.mode != "RGB":
-                        image = image.convert("RGB")
-                    filename = f"{source.stem}-sayfa-{index + 1}{FORMATS[output_format]}"
-                    destination = source.with_name(filename)
-                    output = save_new_file(
-                        destination,
-                        lambda stream: image.save(stream, format=pillow_format, dpi=(DPI, DPI)),
-                    )
-                saved.append(output)
-            except (OSError, ValueError) as error:
-                detail = f"{index + 1}. sayfa dışa aktarılamadı."
-                if isinstance(error, ValueError):
-                    detail = f"{detail} {error}"
-                if saved:
-                    message = f"İşlem tamamlanamadı: {len(saved)} sayfa kaydedildi. {detail}"
-                    return SavedOutputs(tuple(saved), message)
-                raise ValueError(detail) from error
+        try:
+            for index in tracked_items(pages, progress):
+                try:
+                    with page_image(document, index) as image:
+                        if pillow_format == "JPEG" and image.mode != "RGB":
+                            image = image.convert("RGB")
+                        filename = f"{source.stem}-sayfa-{index + 1}{FORMATS[output_format]}"
+                        destination = source.with_name(filename)
+                        output = save_new_file(
+                            destination,
+                            lambda stream: image.save(stream, format=pillow_format, dpi=(DPI, DPI)),
+                        )
+                    saved.append(output)
+                except (OSError, ValueError) as error:
+                    if progress is not None:
+                        progress.check_cancelled()
+                    detail = f"{index + 1}. sayfa dışa aktarılamadı."
+                    if isinstance(error, ValueError):
+                        detail = f"{detail} {error}"
+                    if saved:
+                        message = f"İşlem tamamlanamadı: {len(saved)} sayfa kaydedildi. {detail}"
+                        return SavedOutputs(tuple(saved), message)
+                    raise ValueError(detail) from error
+        except JobCancelled:
+            if not saved:
+                raise
+            message = f"İşlem iptal edildi. {len(saved)} sayfa kaydedildi."
+            return SavedOutputs(tuple(saved), message)
 
     if len(saved) == 1:
         return saved[0]

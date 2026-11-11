@@ -189,8 +189,7 @@ class Window(QWidget):
         progress_layout = QHBoxLayout(self.progress_actions)
         progress_layout.setContentsMargins(0, 0, 0, 0)
         self.job_progress = QProgressBar()
-        self.job_progress.setAccessibleName("İşlenen sayfalar")
-        self.job_progress.setFormat("%v / %m sayfa")
+        self.job_progress.setAccessibleName("İşlem ilerlemesi")
         progress_layout.addWidget(self.job_progress, 1)
         self.cancel_job_button = QPushButton("İptal et")
         self.cancel_job_button.clicked.connect(self.cancel_job)
@@ -783,12 +782,11 @@ class Window(QWidget):
             save_label="OCR çıktısını kaydet",
         )
         if choices is not None:
-            job = ProgressFileJob(lambda progress: ocr_pdf(*choices, progress=progress), self)
-            job.progress_changed.connect(self.update_job_progress)
-            self.job_progress.setRange(0, 0)
-            self.cancel_job_button.setEnabled(True)
-            self.progress_actions.show()
-            self.begin_job(job, "Taranmış sayfalar okunuyor…")
+            self.start_progress_job(
+                lambda progress: ocr_pdf(*choices, progress=progress),
+                "Taranmış sayfalar okunuyor…",
+                unit="sayfa",
+            )
 
     def run_pdf_page_selection(
         self,
@@ -847,8 +845,10 @@ class Window(QWidget):
             save_label="Görselleri kaydet",
         )
         if choices is not None:
-            self.start_job(
-                partial(render_pdf_pages, *choices), "PDF sayfaları görsele dönüştürülüyor…"
+            self.start_progress_job(
+                lambda progress: render_pdf_pages(*choices, progress=progress),
+                "PDF sayfaları görsele dönüştürülüyor…",
+                unit="sayfa",
             )
 
     def choose_pdf_export(
@@ -882,8 +882,12 @@ class Window(QWidget):
         if self.job is not None:
             return
         if self.batch_sources and output_format is not None:
-            operation = partial(convert_images, self.batch_sources, output_format)
-            self.start_job(operation, "Görseller dönüştürülüyor…")
+            sources = self.batch_sources
+            self.start_progress_job(
+                lambda progress: convert_images(sources, output_format, progress=progress),
+                "Görseller dönüştürülüyor…",
+                unit="görsel",
+            )
             return
         if self.source is None:
             return
@@ -942,6 +946,17 @@ class Window(QWidget):
     ) -> None:
         self.begin_job(FileJob(operation, self), status, on_success=on_success)
 
+    def start_progress_job(
+        self, operation: Callable[[JobProgress], FileResult], status: str, *, unit: str
+    ) -> None:
+        job = ProgressFileJob(operation, self)
+        job.progress_changed.connect(self.update_job_progress)
+        self.job_progress.setFormat(f"%v / %m {unit}")
+        self.job_progress.setRange(0, 0)
+        self.cancel_job_button.setEnabled(True)
+        self.progress_actions.show()
+        self.begin_job(job, status)
+
     def begin_job(
         self, job: FileJob, status: str, *, on_success: Callable[[str], None] | None = None
     ) -> None:
@@ -967,7 +982,7 @@ class Window(QWidget):
         if isinstance(self.job, ProgressFileJob):
             self.job.requestInterruption()
             self.cancel_job_button.setEnabled(False)
-            self.status.setText("OCR iptal ediliyor…")
+            self.status.setText("İşlem iptal ediliyor…")
 
     @Slot()
     def job_cancelled(self) -> None:

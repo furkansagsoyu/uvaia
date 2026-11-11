@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
+from typing import TypeVar
+
+Item = TypeVar("Item")
 
 
 class JobCancelled(Exception):
@@ -20,15 +23,17 @@ class JobProgress:
             raise JobCancelled
 
 
-def tracked_pages(pages: Sequence[int], progress: JobProgress | None) -> Iterator[int]:
+def tracked_items(
+    items: Sequence[Item], progress: JobProgress | None
+) -> Iterator[Item]:
     if progress is None:
-        yield from pages
+        yield from items
         return
 
-    total = len(pages)
+    total = len(items)
     progress.report(0, total)
-    for completed, index in enumerate(pages, start=1):
+    for completed, item in enumerate(items, start=1):
         progress.check_cancelled()
-        yield index
+        yield item
         progress.check_cancelled()
         progress.report(completed, total)
