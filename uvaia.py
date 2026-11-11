@@ -44,11 +44,11 @@ from file_order_dialog import FileOrderDialog
 from image_adjust_dialog import ImageAdjustDialog
 from image_conversion import FORMATS, adjust_image, compress_image, convert_image, convert_images
 from image_preview import read_preview_image, to_qimage
-from ocr_tools import ocr_image, ocr_pdf
+from ocr_tools import OCR_DPI, OCR_EXPORT_FORMATS, ocr_image, ocr_pdf
 from orientation_dialog import OrientationDialog
 from output_files import SavedOutputs
-from pdf_render import render_pdf_pages
-from pdf_render_dialog import PdfRenderDialog
+from pdf_export_dialog import PdfExportDialog
+from pdf_render import DPI, render_pdf_pages
 from pdf_rotate_dialog import PdfRotateDialog
 from pdf_text import extract_pdf_text
 from pdf_tools import extract_pages, images_to_pdf, merge_pdfs, rotate_pages
@@ -748,11 +748,13 @@ class Window(QWidget):
         )
 
     def choose_pdf_ocr(self) -> None:
-        self.run_pdf_page_selection(
-            "Taranmış PDF’yi oku",
-            "Taranmış sayfalar okunuyor…",
+        self.choose_pdf_export(
             ocr_pdf,
-            allow_all=True,
+            title="Taranmış PDF’yi oku",
+            formats=OCR_EXPORT_FORMATS,
+            hint=f"Aranabilir PDF, {OCR_DPI} DPI sayfa görüntülerine metin katmanı ekler.",
+            save_label="OCR çıktısını kaydet",
+            status="Taranmış sayfalar okunuyor…",
         )
 
     def run_pdf_page_selection(
@@ -805,6 +807,25 @@ class Window(QWidget):
             self.set_drag_monitor_enabled(self.job is None)
 
     def choose_pdf_render(self) -> None:
+        self.choose_pdf_export(
+            render_pdf_pages,
+            title="PDF’yi görsele dönüştür",
+            formats=("PNG", "JPG"),
+            hint=f"Her sayfa {DPI} DPI ile ayrı bir görsele kaydedilir.",
+            save_label="Görselleri kaydet",
+            status="PDF sayfaları görsele dönüştürülüyor…",
+        )
+
+    def choose_pdf_export(
+        self,
+        operation: Callable[[Path, str, str], FileResult],
+        *,
+        title: str,
+        formats: tuple[str, ...],
+        hint: str,
+        save_label: str,
+        status: str,
+    ) -> None:
         if self.job is not None:
             return
         self.set_drag_monitor_enabled(False)
@@ -812,16 +833,15 @@ class Window(QWidget):
             source = self.choose_pdf_source()
             if source is None:
                 return
-            dialog = PdfRenderDialog(source.name, self)
+            dialog = PdfExportDialog(
+                source.name, self, title=title, formats=formats, hint=hint, save_label=save_label
+            )
             try:
                 if dialog.exec() == QDialog.DialogCode.Accepted:
-                    operation = partial(
-                        render_pdf_pages,
-                        source,
-                        dialog.pages.text(),
-                        dialog.output_format.currentText(),
+                    export = partial(
+                        operation, source, dialog.pages.text(), dialog.output_format.currentText()
                     )
-                    self.start_job(operation, "PDF sayfaları görsele dönüştürülüyor…")
+                    self.start_job(export, status)
             finally:
                 dialog.deleteLater()
         finally:

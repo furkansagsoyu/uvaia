@@ -110,7 +110,9 @@ sudo apt install tesseract-ocr tesseract-ocr-tur tesseract-ocr-eng
 
 PDF sekmesinde **Taranmış PDF’yi oku (OCR)…** seçeneğini aç. Tüm belgeyi veya
 `1, 3-5` gibi sayfaları seç. Uvaia Türkçe ve İngilizce yazıyı yerel olarak
-tanır ve kaynak klasöre `belge-ocr.txt` olarak kaydeder.
+tanır. **Metin (.txt)** seçeneği `belge-ocr.txt` dosyasını oluşturur.
+**Aranabilir PDF (.pdf)** seçeneği, 300 DPI sayfa görüntüleri ve seçilebilir
+bir metin katmanı içeren `belge-aranabilir.pdf` dosyasını oluşturur.
 
 Ekran görüntüsü veya fotoğraf için **Görsel** sekmesinde **Görseldeki yazıyı
 oku (OCR)…** seçeneğini kullan. Çıktı `foto-ocr.txt` olarak kaydedilir.
