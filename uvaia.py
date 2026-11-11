@@ -30,10 +30,10 @@ from drag_wheel import (
     DragWheel,
     WheelMonitor,
     accept_copy,
-    local_drop_path,
+    local_drop_paths,
     offers_file_copy,
 )
-from image_conversion import FORMATS, convert_image
+from image_conversion import FORMATS, convert_image, convert_images
 from pdf_dialog import PdfMergeDialog
 from pdf_tools import extract_pages, merge_pdfs
 from video_audio import VIDEO_EXTENSIONS, extract_mp3
@@ -62,7 +62,7 @@ class FileJob(QThread):
     succeeded = Signal(str)
     failed = Signal(str)
 
-    def __init__(self, operation: Callable[[], Path], parent: QWidget) -> None:
+    def __init__(self, operation: Callable[[], Path | str], parent: QWidget) -> None:
         super().__init__(parent)
         self.operation = operation
 
@@ -74,7 +74,8 @@ class FileJob(QThread):
         except (OSError, ValueError) as error:
             self.failed.emit(str(error))
         else:
-            self.succeeded.emit(output.name)
+            message = f"Kaydedildi: {output.name}" if isinstance(output, Path) else output
+            self.succeeded.emit(message)
 
 
 class Window(QWidget):
@@ -83,6 +84,7 @@ class Window(QWidget):
     def __init__(self) -> None:
         super().__init__()
         self.source: Path | None = None
+        self.batch_sources: tuple[Path, ...] = ()
         self.job: FileJob | None = None
         self.monitor: WheelMonitor | None = None
         self.setWindowTitle("Uvaia")
@@ -98,7 +100,7 @@ class Window(QWidget):
         title.setObjectName("title")
         layout.addWidget(title)
 
-        self.drop_zone = QLabel("Bir görsel, PDF veya video bırak")
+        self.drop_zone = QLabel("Görselleri, PDF’yi veya videoyu bırak")
         self.drop_zone.setObjectName("dropZone")
         self.drop_zone.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.drop_zone.setWordWrap(True)
@@ -119,12 +121,12 @@ class Window(QWidget):
             button.setProperty("format", True)
             button.clicked.connect(lambda checked=False, fmt=output_format: self.convert(fmt))
             wheel_layout.addWidget(button, *position)
-        resize_button = QPushButton("Görseli küçült…")
-        resize_button.clicked.connect(self.choose_scale)
-        wheel_layout.addWidget(resize_button, 3, 0, 1, 3)
-        crop_button = QPushButton("Görseli kırp…")
-        crop_button.clicked.connect(self.choose_crop)
-        wheel_layout.addWidget(crop_button, 4, 0, 1, 3)
+        self.resize_button = QPushButton("Görseli küçült…")
+        self.resize_button.clicked.connect(self.choose_scale)
+        wheel_layout.addWidget(self.resize_button, 3, 0, 1, 3)
+        self.crop_button = QPushButton("Görseli kırp…")
+        self.crop_button.clicked.connect(self.choose_crop)
+        wheel_layout.addWidget(self.crop_button, 4, 0, 1, 3)
         self.wheel.hide()
         layout.addWidget(self.wheel)
 
@@ -155,18 +157,47 @@ class Window(QWidget):
             return
         wheel.file_dropped.connect(self.convert_drop)
         QApplication.instance().aboutToQuit.connect(self.monitor.shutdown)
-        self.drop_zone.setText("Görsel, PDF veya video bırak. Görsel çarkı için Shift’e bas.")
+        self.drop_zone.setText("Görselleri, PDF’yi veya videoyu bırak. Görsel çarkı için Shift’e bas.")
 
-    def convert_drop(self, source: Path, output_format: str) -> None:
-        self.select_image(source)
+    def convert_drop(self, paths: tuple[Path, ...], output_format: str) -> None:
+        if self.job is not None:
+            return
         self.showNormal()
         self.raise_()
+        if len(paths) == 1:
+            self.select_file(paths[0])
+            if self.wheel.isHidden():
+                self.status.setText("Format çarkı görselleri dönüştürür.")
+                return
+        elif not self.select_batch(paths):
+            return
         self.convert(output_format)
 
     def choose_image(self) -> None:
-        filename, _ = QFileDialog.getOpenFileName(self, "Görsel seç")
-        if filename:
-            self.select_file(Path(filename))
+        self.set_drag_monitor_enabled(False)
+        try:
+            filenames, _ = QFileDialog.getOpenFileNames(self, "Görselleri seç")
+        finally:
+            self.set_drag_monitor_enabled(True)
+        paths = tuple(dict.fromkeys(Path(filename) for filename in filenames))
+        if len(paths) == 1:
+            self.select_file(paths[0])
+        elif paths:
+            self.select_batch(paths)
+
+    def select_batch(self, paths: tuple[Path, ...]) -> bool:
+        if any(path.suffix.lower() in (*VIDEO_EXTENSIONS, ".pdf") for path in paths):
+            self.status.setText("Toplu dönüştürme için yalnızca görselleri seç.")
+            return False
+        self.source = None
+        self.batch_sources = paths
+        self.drop_zone.setText(f"{len(paths)} görsel seçildi")
+        self.wheel.show()
+        self.resize_button.hide()
+        self.crop_button.hide()
+        self.audio_button.setText("Videodan MP3 çıkar…")
+        self.status.clear()
+        return True
 
     def select_file(self, source: Path) -> None:
         extension = source.suffix.lower()
@@ -178,13 +209,17 @@ class Window(QWidget):
             self.select_image(source)
 
     def select_image(self, source: Path) -> None:
+        self.batch_sources = ()
         self.source = source
+        self.resize_button.show()
+        self.crop_button.show()
         self.drop_zone.setText(source.name)
         self.wheel.show()
         self.audio_button.setText("Videodan MP3 çıkar…")
         self.status.clear()
 
     def select_video(self, source: Path) -> None:
+        self.batch_sources = ()
         self.source = source
         self.drop_zone.setText(source.name)
         self.wheel.hide()
@@ -192,6 +227,7 @@ class Window(QWidget):
         self.status.clear()
 
     def select_pdf(self, source: Path) -> None:
+        self.batch_sources = ()
         self.source = source
         self.drop_zone.setText(source.name)
         self.wheel.hide()
@@ -222,9 +258,13 @@ class Window(QWidget):
             accept_copy(event)
 
     def dropEvent(self, event: QDropEvent) -> None:
-        source = local_drop_path(event)
-        if self.job is None and source is not None and source.is_file():
-            self.select_file(source)
+        if self.job is not None:
+            return
+        paths = local_drop_paths(event)
+        if len(paths) == 1:
+            self.select_file(paths[0])
+            accept_copy(event)
+        elif paths and self.select_batch(paths):
             accept_copy(event)
 
     def set_drag_monitor_enabled(self, enabled: bool) -> None:
@@ -309,7 +349,13 @@ class Window(QWidget):
             self.set_drag_monitor_enabled(self.job is None)
 
     def convert(self, output_format: str | None, *, scale_percent: int | None = None) -> None:
-        if self.source is None or self.job is not None:
+        if self.job is not None:
+            return
+        if self.batch_sources and output_format is not None:
+            operation = partial(convert_images, self.batch_sources, output_format)
+            self.start_job(operation, "Görseller dönüştürülüyor…")
+            return
+        if self.source is None:
             return
         action = "Küçültülüyor…" if scale_percent is not None else "Dönüştürülüyor…"
         operation = partial(
@@ -317,12 +363,12 @@ class Window(QWidget):
         )
         self.start_job(operation, action)
 
-    def start_job(self, operation: Callable[[], Path], status: str) -> None:
+    def start_job(self, operation: Callable[[], Path | str], status: str) -> None:
         self.set_drag_monitor_enabled(False)
         self.status.setText(status)
         self.set_file_controls_enabled(False)
         self.job = FileJob(operation, self)
-        self.job.succeeded.connect(lambda name: self.status.setText(f"Kaydedildi: {name}"))
+        self.job.succeeded.connect(self.status.setText)
         self.job.failed.connect(lambda message: self.status.setText(f"İşlem tamamlanamadı: {message}"))
         self.job.finished.connect(self.job_finished)
         self.job.finished.connect(self.job.deleteLater)

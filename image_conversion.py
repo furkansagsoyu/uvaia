@@ -57,3 +57,23 @@ def convert_image(
     destination = source.with_name(f"{stem}{extension}")
     pillow_format = "JPEG" if output_format == "JPG" else output_format
     return save_new_file(destination, lambda stream: image.save(stream, format=pillow_format))
+
+
+def convert_images(sources: tuple[Path, ...], output_format: str) -> str:
+    """Hatalı dosyaları atlayarak seçilen görselleri sırayla dönüştürür."""
+    converted = 0
+    failed: list[str] = []
+    for source in sources:
+        try:
+            convert_image(source, output_format)
+        except (OSError, ValueError, Image.DecompressionBombError):
+            failed.append(source.name)
+        else:
+            converted += 1
+
+    if failed:
+        issue = f"{len(failed)} dosya dönüştürülemedi. İlk hata: {failed[0]}"
+        if converted == 0:
+            raise ValueError(issue)
+        return f"{converted}/{len(sources)} görsel {output_format} olarak kaydedildi. {issue}"
+    return f"{converted} görsel {output_format} olarak kaydedildi."

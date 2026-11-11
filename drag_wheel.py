@@ -20,14 +20,15 @@ def offers_file_copy(event: QDropEvent) -> bool:
     )
 
 
-def local_drop_path(event: QDropEvent) -> Path | None:
+def local_drop_paths(event: QDropEvent) -> tuple[Path, ...]:
     """Dosya listesini yalnız bırakma olayında ister."""
     if not offers_file_copy(event):
-        return None
+        return ()
     urls = event.mimeData().urls()
-    if len(urls) == 1 and urls[0].isLocalFile():
-        return Path(urls[0].toLocalFile())
-    return None
+    if not all(url.isLocalFile() for url in urls):
+        return ()
+    paths = tuple(dict.fromkeys(Path(url.toLocalFile()) for url in urls))
+    return paths if all(path.is_file() for path in paths) else ()
 
 
 def accept_copy(event: QDropEvent) -> None:
@@ -55,7 +56,7 @@ class X11Drag:
 
 
 class DragWheel(QWidget):
-    """Odak almadan açılan ve formatın üstüne bırakılan dosyayı ileten çark."""
+    """Odak almadan açılan ve formatın üstüne bırakılan dosyaları ileten çark."""
 
     file_dropped = Signal(object, str)
 
@@ -120,12 +121,12 @@ class DragWheel(QWidget):
             event.ignore()
 
     def dropEvent(self, event: QDropEvent) -> None:
-        source = local_drop_path(event)
+        paths = local_drop_paths(event)
         output_format = self.format_at(event)
-        if source is not None and source.is_file() and output_format:
+        if paths and output_format:
             accept_copy(event)
             self.hide()
-            self.file_dropped.emit(source, output_format)
+            self.file_dropped.emit(paths, output_format)
         else:
             event.ignore()
 
