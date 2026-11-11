@@ -120,3 +120,7 @@ QR kodunu içeren görseli ana pencereye bırak ve **QR kodu oku…**’ya bas.
 Bu düğmeyle doğrudan bir görsel de seçebilirsin. Bulunan içerik düz metin
 olarak gösterilir. Metnin tamamını veya seçili bölümünü **Panoya kopyala**
 düğmesiyle kopyalayabilirsin.
+
+PDF’de tarama yapmak için **PDF** sekmesinde **PDF’de QR kodu ara…** seçeneğini
+aç. Tüm belge için alanı boş bırak veya `1, 3-5` gibi sayfalar seç. Sonuçlarda
+her kodun bulunduğu sayfa numarası gösterilir.

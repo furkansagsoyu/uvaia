@@ -44,7 +44,7 @@ from orientation_dialog import OrientationDialog
 from pdf_render import render_pdf_pages
 from pdf_render_dialog import PdfRenderDialog
 from pdf_tools import extract_pages, images_to_pdf, merge_pdfs
-from qr_reader import read_qr_codes
+from qr_reader import read_pdf_qr_codes, read_qr_codes
 from video_tools import VIDEO_EXTENSIONS, extract_frame, extract_mp3, trim_video
 from video_trim_dialog import VideoTrimDialog
 
@@ -201,6 +201,10 @@ class Window(QWidget):
         self.pdf_render_button = QPushButton("PDF’yi görsele dönüştür…")
         self.pdf_render_button.clicked.connect(self.choose_pdf_render)
         layout.addWidget(self.pdf_render_button)
+
+        self.pdf_qr_button = QPushButton("PDF’de QR kodu ara…")
+        self.pdf_qr_button.clicked.connect(self.choose_pdf_qr)
+        layout.addWidget(self.pdf_qr_button)
         layout.addStretch()
 
     def build_video_tools(self) -> None:
@@ -496,6 +500,28 @@ class Window(QWidget):
         finally:
             self.set_drag_monitor_enabled(self.job is None)
 
+    def choose_pdf_qr(self) -> None:
+        if self.job is not None:
+            return
+        self.set_drag_monitor_enabled(False)
+        try:
+            source = self.choose_pdf_source()
+            if source is None:
+                return
+            selection, accepted = QInputDialog.getText(
+                self,
+                "PDF’de QR kodu ara",
+                f"{source.name}\nTüm sayfalar için boş bırak veya 1, 3-5 gibi bir seçim yaz.",
+            )
+            if accepted:
+                self.start_job(
+                    partial(read_pdf_qr_codes, source, selection),
+                    "PDF sayfalarında QR kodu aranıyor…",
+                    on_success=self.show_qr_result,
+                )
+        finally:
+            self.set_drag_monitor_enabled(self.job is None)
+
     @Slot(str)
     def show_qr_result(self, payload: str) -> None:
         self.status.setText("QR kodu okundu.")
@@ -672,6 +698,7 @@ class Window(QWidget):
         self.pdf_button.setEnabled(enabled)
         self.pages_button.setEnabled(enabled)
         self.pdf_render_button.setEnabled(enabled)
+        self.pdf_qr_button.setEnabled(enabled)
         self.images_pdf_button.setEnabled(enabled)
         self.audio_button.setEnabled(enabled)
         self.frame_button.setEnabled(enabled)
