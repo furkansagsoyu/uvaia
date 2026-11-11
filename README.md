@@ -30,6 +30,18 @@ olarak yazar.
 piksel boyutlarını korur. Çıktı kaynak dosyadan küçükse
 `foto-sikistirilmis.webp` gibi bir kopya kaydeder.
 
+## Cinnamon ve Nemo menülerine ekleme
+
+```bash
+.venv/bin/python install_desktop.py
+```
+
+Cinnamon menüsünde **Uvaia** görünür. Nemo’da desteklenen dosyalara sağ
+tıklayıp **Uvaia ile aç** seçebilirsin. Birden fazla görsel seçilirse toplu
+dönüştürme, birden fazla PDF seçilirse birleştirme listesi açılır. Proje
+klasörünü taşırsan kurulum komutunu tekrar çalıştır. Menü girdilerini kaldırmak
+için aynı komuta `--remove` ekle.
+
 ## Sürüklerken çarkı açma
 
 Uvaia açıkken Nemo'da seçili görselleri sol tuşla sürüklemeye başla. **Shift**'e basınca

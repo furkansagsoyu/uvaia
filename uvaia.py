@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import argparse
 import sys
 from collections.abc import Callable
 from functools import partial
 from pathlib import Path
 
 from PIL import Image
-from PySide6.QtCore import Qt, QThread, Signal, Slot
+from PySide6.QtCore import Qt, QThread, QTimer, Signal, Slot
 from PySide6.QtGui import QCloseEvent, QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
     QApplication,
@@ -139,7 +140,7 @@ class Window(QWidget):
         layout.addWidget(self.wheel)
 
         self.pdf_button = QPushButton("PDF birleştir…")
-        self.pdf_button.clicked.connect(self.choose_pdfs)
+        self.pdf_button.clicked.connect(lambda: self.choose_pdfs())
         layout.addWidget(self.pdf_button)
 
         self.pages_button = QPushButton("PDF’den sayfa çıkar…")
@@ -447,7 +448,7 @@ class Window(QWidget):
         dialog.finished.connect(lambda: self.set_drag_monitor_enabled(self.job is None))
         dialog.open()
 
-    def choose_pdfs(self) -> None:
+    def choose_pdfs(self, initial: tuple[Path, ...] = ()) -> None:
         if self.job is not None:
             return
         dialog = FileOrderDialog(
@@ -458,6 +459,7 @@ class Window(QWidget):
             save_label="Birleştir",
             file_filter="PDF (*.pdf *.PDF)",
             minimum=2,
+            initial=initial,
         )
         self.run_file_order_dialog(dialog, merge_pdfs, "PDF’ler birleştiriliyor…")
 
@@ -573,16 +575,31 @@ class Window(QWidget):
             super().closeEvent(event)
 
 
+def open_startup_files(window: Window, paths: tuple[Path, ...]) -> None:
+    for path in paths:
+        if not path.is_file():
+            window.status.setText(f"Dosya bulunamadı: {path.name}")
+            return
+    if len(paths) == 1:
+        window.select_file(paths[0])
+    elif paths and all(path.suffix.lower() == ".pdf" for path in paths):
+        QTimer.singleShot(0, lambda: window.choose_pdfs(paths))
+    elif paths:
+        window.select_batch(paths)
+
+
 def main() -> int:
-    app = QApplication(sys.argv)
+    parser = argparse.ArgumentParser(description="Yerel görsel, PDF ve video araçları.")
+    parser.add_argument("files", nargs="*", metavar="dosya")
+    args = parser.parse_args()
+    paths = tuple(dict.fromkeys(Path(name).expanduser().absolute() for name in args.files))
+
+    app = QApplication([sys.argv[0]])
     app.setApplicationName("Uvaia")
     window = Window()
     window.start_drag_monitor()
-    if len(sys.argv) > 1:
-        path = Path(sys.argv[1]).expanduser().absolute()
-        if path.is_file():
-            window.select_file(path)
     window.show()
+    open_startup_files(window, paths)
     return app.exec()
 
 
