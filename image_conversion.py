@@ -13,6 +13,19 @@ SOURCE_FORMATS = {"PNG": "PNG", "JPEG": "JPG", "WEBP": "WebP"}
 CropBounds = tuple[float, float, float, float]
 
 
+def read_still_image(source: Path) -> tuple[Image.Image, str | None]:
+    with Image.open(source) as original:
+        if getattr(original, "is_animated", False):
+            raise ValueError("Hareketli görseller henüz desteklenmiyor.")
+        return ImageOps.exif_transpose(original).convert("RGBA"), original.format
+
+
+def flatten_on_white(image: Image.Image) -> Image.Image:
+    background = Image.new("RGB", image.size, "white")
+    background.paste(image, mask=image.getchannel("A"))
+    return background
+
+
 def convert_image(
     source: Path,
     output_format: str | None,
@@ -23,12 +36,9 @@ def convert_image(
     """Tamamlanan çıktıyı boş bir ada kaydeder."""
     if scale_percent is not None and not 1 <= scale_percent <= 99:
         raise ValueError("Küçültme oranı %1 ile %99 arasında olmalı.")
-    with Image.open(source) as original:
-        if getattr(original, "is_animated", False):
-            raise ValueError("Hareketli görseller henüz desteklenmiyor.")
-        if output_format is None:
-            output_format = SOURCE_FORMATS.get(original.format or "", "PNG")
-        image = ImageOps.exif_transpose(original).convert("RGBA")
+    image, source_format = read_still_image(source)
+    if output_format is None:
+        output_format = SOURCE_FORMATS.get(source_format or "", "PNG")
 
     extension = FORMATS[output_format]
     stem = source.stem
@@ -50,9 +60,7 @@ def convert_image(
         stem = f"{stem}-kirpilmis"
 
     if output_format == "JPG":
-        background = Image.new("RGB", image.size, "white")
-        background.paste(image, mask=image.getchannel("A"))
-        image = background
+        image = flatten_on_white(image)
 
     destination = source.with_name(f"{stem}{extension}")
     pillow_format = "JPEG" if output_format == "JPG" else output_format

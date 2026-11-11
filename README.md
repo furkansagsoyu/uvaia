@@ -39,6 +39,14 @@ dosya seçiciyi kullanmak da mümkündür.
 
 Sürükle-bırak akışı Nashi'den ilham alır.
 
+## Görsellerden PDF oluşturma
+
+Bir veya daha fazla görseli ana pencereye bırak ve **Görsellerden PDF…**’yi aç.
+**Görsel ekle…** ile doğrudan dosya da seçebilirsin. Sayfa sırasını düzenleyip
+**PDF oluştur**’a bas. Her görsel ayrı bir sayfa olur. Şeffaf alanlar beyaz
+zeminle kaydedilir. Çıktı, listedeki ilk görselin klasörüne
+`gorsel-gorseller.pdf` adıyla yazılır.
+
 ## PDF birleştirme
 
 Ana pencerede **PDF birleştir…** düğmesine bas. **PDF ekle…** ile en az iki

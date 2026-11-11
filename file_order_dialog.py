@@ -1,4 +1,4 @@
-"""PDF birleştirme için dosya seçimi ve sıralama penceresi."""
+"""Dosya seçimi ve sıralama penceresi."""
 
 from __future__ import annotations
 
@@ -19,19 +19,32 @@ from PySide6.QtWidgets import (
 )
 
 
-class PdfMergeDialog(QDialog):
-    def __init__(self, parent: QWidget) -> None:
+class FileOrderDialog(QDialog):
+    def __init__(
+        self,
+        parent: QWidget,
+        *,
+        title: str,
+        hint: str,
+        add_label: str,
+        save_label: str,
+        file_filter: str,
+        minimum: int,
+        initial: tuple[Path, ...] = (),
+    ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("PDF birleştir")
+        self.file_filter = file_filter
+        self.minimum = minimum
+        self.setWindowTitle(title)
         self.resize(490, 320)
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel("PDF’ler yukarıdan aşağıya birleştirilir."))
+        layout.addWidget(QLabel(hint))
         self.files = QListWidget()
-        self.files.setAccessibleName("PDF birleştirme sırası")
+        self.files.setAccessibleName("Dosya sırası")
         layout.addWidget(self.files)
 
         actions = QHBoxLayout()
-        add = QPushButton("PDF ekle…")
+        add = QPushButton(add_label)
         add.clicked.connect(self.add_files)
         actions.addWidget(add)
         self.up = QPushButton("Yukarı")
@@ -46,13 +59,13 @@ class PdfMergeDialog(QDialog):
         layout.addLayout(actions)
 
         buttons = QDialogButtonBox()
-        self.merge = buttons.addButton("Birleştir", QDialogButtonBox.ButtonRole.AcceptRole)
+        self.save = buttons.addButton(save_label, QDialogButtonBox.ButtonRole.AcceptRole)
         buttons.addButton("İptal", QDialogButtonBox.ButtonRole.RejectRole)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
         self.files.currentRowChanged.connect(self.update_actions)
-        self.update_actions()
+        self.add_paths(initial)
 
     def paths(self) -> list[Path]:
         return [
@@ -62,17 +75,19 @@ class PdfMergeDialog(QDialog):
 
     def add_files(self) -> None:
         filenames, _ = QFileDialog.getOpenFileNames(
-            self, "Birleştirilecek PDF’leri seç", filter="PDF (*.pdf *.PDF)"
+            self, "Eklenecek dosyaları seç", filter=self.file_filter
         )
+        self.add_paths(tuple(Path(filename) for filename in filenames))
+
+    def add_paths(self, paths: tuple[Path, ...]) -> None:
         current = set(self.paths())
-        for filename in filenames:
-            path = Path(filename)
+        for path in paths:
             if path in current:
                 continue
             current.add(path)
             item = QListWidgetItem(path.name)
-            item.setToolTip(filename)
-            item.setData(Qt.ItemDataRole.UserRole, filename)
+            item.setToolTip(str(path))
+            item.setData(Qt.ItemDataRole.UserRole, str(path))
             self.files.addItem(item)
         if self.files.currentRow() < 0:
             self.files.setCurrentRow(0)
@@ -97,4 +112,4 @@ class PdfMergeDialog(QDialog):
         self.up.setEnabled(row > 0)
         self.down.setEnabled(0 <= row < count - 1)
         self.remove.setEnabled(row >= 0)
-        self.merge.setEnabled(count >= 2)
+        self.save.setEnabled(count >= self.minimum)

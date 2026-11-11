@@ -1,15 +1,17 @@
-"""PDF birleştirme ve sayfa çıkarma işlemleri."""
+"""PDF birleştirme, sayfa çıkarma ve görsel dışa aktarma işlemleri."""
 
 from __future__ import annotations
 
 import re
 from collections.abc import Iterator
 from contextlib import contextmanager
+from io import BytesIO
 from pathlib import Path
 
 from pypdf import PdfReader, PdfWriter
 from pypdf.errors import PdfReadError
 
+from image_conversion import flatten_on_white, read_still_image
 from output_files import save_new_file
 
 PAGE_RANGE = re.compile(r"([0-9]{1,10})(?:\s*[-–]\s*([0-9]{1,10}))?")
@@ -72,4 +74,25 @@ def extract_pages(source: Path, selection: str) -> Path:
             writer.append(reader, pages=pages)
 
         destination = source.with_name(f"{source.stem}-sayfalar.pdf")
+        return save_new_file(destination, writer.write)
+
+
+def images_to_pdf(sources: list[Path]) -> Path:
+    if not sources:
+        raise ValueError("En az bir görsel seç.")
+
+    with PdfWriter() as writer:
+        for source in sources:
+            try:
+                image, _ = read_still_image(source)
+            except (OSError, ValueError) as error:
+                raise ValueError(f"Görsel okunamadı: {source.name}. {error}") from error
+            with BytesIO() as page:
+                flatten_on_white(image).save(page, format="PDF", resolution=96)
+                page.seek(0)
+                with PdfReader(page) as reader:
+                    writer.add_page(reader.pages[0])
+
+        first = sources[0]
+        destination = first.with_name(f"{first.stem}-gorseller.pdf")
         return save_new_file(destination, writer.write)

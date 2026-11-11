@@ -34,8 +34,8 @@ from drag_wheel import (
     offers_file_copy,
 )
 from image_conversion import FORMATS, convert_image, convert_images
-from pdf_dialog import PdfMergeDialog
-from pdf_tools import extract_pages, merge_pdfs
+from file_order_dialog import FileOrderDialog
+from pdf_tools import extract_pages, images_to_pdf, merge_pdfs
 from video_audio import VIDEO_EXTENSIONS, extract_mp3
 
 STYLE = """
@@ -137,6 +137,10 @@ class Window(QWidget):
         self.pages_button = QPushButton("PDF’den sayfa çıkar…")
         self.pages_button.clicked.connect(self.choose_pages)
         layout.addWidget(self.pages_button)
+
+        self.images_pdf_button = QPushButton("Görsellerden PDF…")
+        self.images_pdf_button.clicked.connect(self.choose_images_for_pdf)
+        layout.addWidget(self.images_pdf_button)
 
         self.audio_button = QPushButton("Videodan MP3 çıkar…")
         self.audio_button.clicked.connect(self.choose_video)
@@ -314,11 +318,45 @@ class Window(QWidget):
     def choose_pdfs(self) -> None:
         if self.job is not None:
             return
+        dialog = FileOrderDialog(
+            self,
+            title="PDF birleştir",
+            hint="PDF’ler yukarıdan aşağıya birleştirilir.",
+            add_label="PDF ekle…",
+            save_label="Birleştir",
+            file_filter="PDF (*.pdf *.PDF)",
+            minimum=2,
+        )
+        self.run_file_order_dialog(dialog, merge_pdfs, "PDF’ler birleştiriliyor…")
+
+    def choose_images_for_pdf(self) -> None:
+        if self.job is not None:
+            return
+        initial = self.batch_sources
+        if self.source is not None and not self.wheel.isHidden():
+            initial = (self.source,)
+        dialog = FileOrderDialog(
+            self,
+            title="Görsellerden PDF oluştur",
+            hint="Her görsel listedeki sırayla bir sayfaya yerleştirilir.",
+            add_label="Görsel ekle…",
+            save_label="PDF oluştur",
+            file_filter="Tüm dosyalar (*)",
+            minimum=1,
+            initial=initial,
+        )
+        self.run_file_order_dialog(dialog, images_to_pdf, "PDF hazırlanıyor…")
+
+    def run_file_order_dialog(
+        self,
+        dialog: FileOrderDialog,
+        operation: Callable[[list[Path]], Path],
+        status: str,
+    ) -> None:
         self.set_drag_monitor_enabled(False)
-        dialog = PdfMergeDialog(self)
         try:
             if dialog.exec() == QDialog.DialogCode.Accepted:
-                self.start_job(partial(merge_pdfs, dialog.paths()), "PDF’ler birleştiriliyor…")
+                self.start_job(partial(operation, dialog.paths()), status)
         finally:
             dialog.deleteLater()
             self.set_drag_monitor_enabled(self.job is None)
@@ -384,6 +422,7 @@ class Window(QWidget):
         self.wheel.setEnabled(enabled)
         self.pdf_button.setEnabled(enabled)
         self.pages_button.setEnabled(enabled)
+        self.images_pdf_button.setEnabled(enabled)
         self.audio_button.setEnabled(enabled)
 
     def closeEvent(self, event: QCloseEvent) -> None:
