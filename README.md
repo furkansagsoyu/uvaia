@@ -69,3 +69,10 @@ kaydet**’e bas. **Videodan MP3 çıkar…** düğmesiyle de video seçebilirsi
 videolar için uygulama hata gösterir.
 
 FFmpeg, Linux Mint’te `imageio-ffmpeg` bağımlılığıyla kurulur.
+
+## Videodan kare alma
+
+Videoyu ana pencereye bırak ya da **Videodan kare al…** ile seç.
+Kare zamanını saniye veya saat biçiminde gir. Örneğin `12,5` ve
+`00:12.500` aynı zamanı belirtir. Uvaia video karesini kaynak klasöre
+`video-kare-12.500s.png` adıyla kaydeder.

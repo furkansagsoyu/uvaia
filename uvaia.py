@@ -36,7 +36,7 @@ from drag_wheel import (
 from image_conversion import FORMATS, convert_image, convert_images
 from file_order_dialog import FileOrderDialog
 from pdf_tools import extract_pages, images_to_pdf, merge_pdfs
-from video_audio import VIDEO_EXTENSIONS, extract_mp3
+from video_tools import VIDEO_EXTENSIONS, extract_frame, extract_mp3
 
 STYLE = """
 QWidget { background: #172321; color: #eff6ed; font-size: 15px; }
@@ -146,6 +146,10 @@ class Window(QWidget):
         self.audio_button.clicked.connect(self.choose_video)
         layout.addWidget(self.audio_button)
 
+        self.frame_button = QPushButton("Videodan kare al…")
+        self.frame_button.clicked.connect(self.choose_frame)
+        layout.addWidget(self.frame_button)
+
         self.status = QLabel()
         self.status.setObjectName("status")
         self.status.setWordWrap(True)
@@ -238,24 +242,49 @@ class Window(QWidget):
         self.audio_button.setText("Videodan MP3 çıkar…")
         self.status.clear()
 
+    def choose_video_source(self, title: str) -> Path | None:
+        source = self.source
+        if source is not None and source.suffix.lower() in VIDEO_EXTENSIONS:
+            return source
+
+        extensions = " ".join(f"*{ext} *{ext.upper()}" for ext in VIDEO_EXTENSIONS)
+        filename, _ = QFileDialog.getOpenFileName(self, title, filter=f"Video ({extensions})")
+        if not filename:
+            return None
+
+        source = Path(filename)
+        self.select_video(source)
+        return source
+
     def choose_video(self) -> None:
         if self.job is not None:
             return
-        source = self.source
-        if source is None or source.suffix.lower() not in VIDEO_EXTENSIONS:
-            extensions = " ".join(f"*{ext} *{ext.upper()}" for ext in VIDEO_EXTENSIONS)
-            self.set_drag_monitor_enabled(False)
-            try:
-                filename, _ = QFileDialog.getOpenFileName(
-                    self, "Sesini çıkaracağın videoyu seç", filter=f"Video ({extensions})"
-                )
-            finally:
-                self.set_drag_monitor_enabled(True)
-            if not filename:
+        self.set_drag_monitor_enabled(False)
+        try:
+            source = self.choose_video_source("Sesini çıkaracağın videoyu seç")
+            if source is not None:
+                self.start_job(partial(extract_mp3, source), "MP3 hazırlanıyor…")
+        finally:
+            self.set_drag_monitor_enabled(self.job is None)
+
+    def choose_frame(self) -> None:
+        if self.job is not None:
+            return
+        self.set_drag_monitor_enabled(False)
+        try:
+            source = self.choose_video_source("Kare alacağın videoyu seç")
+            if source is None:
                 return
-            source = Path(filename)
-            self.select_video(source)
-        self.start_job(partial(extract_mp3, source), "MP3 hazırlanıyor…")
+            timestamp, accepted = QInputDialog.getText(
+                self,
+                "Videodan kare al",
+                f"{source.name}\nKare zamanı (ör. 12,5 saniye için 12,5 veya 00:12.500)",
+                text="0",
+            )
+            if accepted:
+                self.start_job(partial(extract_frame, source, timestamp), "Video karesi hazırlanıyor…")
+        finally:
+            self.set_drag_monitor_enabled(self.job is None)
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
         if self.job is None and offers_file_copy(event):
@@ -424,6 +453,7 @@ class Window(QWidget):
         self.pages_button.setEnabled(enabled)
         self.images_pdf_button.setEnabled(enabled)
         self.audio_button.setEnabled(enabled)
+        self.frame_button.setEnabled(enabled)
 
     def closeEvent(self, event: QCloseEvent) -> None:
         if self.job is not None:
