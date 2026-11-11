@@ -10,6 +10,10 @@ python3 -m venv .venv
 .venv/bin/python uvaia.py
 ```
 
+Araçlar **Görsel**, **PDF** ve **Video** sekmelerinde. Ana pencereye dosya
+bıraktığında Uvaia ilgili sekmeyi açar. Birden fazla PDF bırakmak birleştirme
+listesini açar.
+
 Nemo'dan bir veya birden fazla görseli pencereye bırak ya da **Görsel seç…**
 düğmesini kullan.
 Çarktan **PNG**, **JPG** veya **WebP** seç. Sonuç kaynak dosyanın klasörüne

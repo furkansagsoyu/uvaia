@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QPlainTextEdit,
     QPushButton,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -37,8 +38,8 @@ from drag_wheel import (
     local_drop_paths,
     offers_file_copy,
 )
-from image_conversion import FORMATS, compress_image, convert_image, convert_images
 from file_order_dialog import FileOrderDialog
+from image_conversion import FORMATS, compress_image, convert_image, convert_images
 from orientation_dialog import OrientationDialog
 from pdf_tools import extract_pages, images_to_pdf, merge_pdfs
 from qr_reader import read_qr_codes
@@ -60,6 +61,14 @@ QPushButton[format="true"] { background: #eac174; color: #172321;
 QPushButton:focus { border-color: #ffffff; }
 QPushButton:hover { border-color: #a1cbb4; }
 QPushButton:disabled { color: #9ba9a2; background: #283430; }
+QTabWidget::pane { border: 1px solid #3b534a; border-radius: 10px; top: -1px; }
+QTabBar::tab { padding: 10px 18px; border: 1px solid transparent;
+    border-bottom: 2px solid transparent; border-top-left-radius: 8px;
+    border-top-right-radius: 8px; color: #c4d6c7; }
+QTabBar::tab:selected { background: #2b433a; color: #eff6ed;
+    border-bottom-color: #eac174; }
+QTabBar::tab:hover { background: #20312c; }
+QTabBar::tab:focus { border-top-color: #a1cbb4; }
 """
 
 
@@ -86,7 +95,7 @@ class FileJob(QThread):
 
 
 class Window(QWidget):
-    """Görsel seçimi, işlem çarkı ve çıktı durumu."""
+    """Dosya seçimi, türe göre araçlar ve çıktı durumu."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -113,36 +122,72 @@ class Window(QWidget):
         self.drop_zone.setWordWrap(True)
         layout.addWidget(self.drop_zone)
 
+        self.tools = QTabWidget()
+        self.tools.setAccessibleName("Dosya araçları")
+        layout.addWidget(self.tools)
+        self.image_tab = QWidget()
+        self.pdf_tab = QWidget()
+        self.video_tab = QWidget()
+        self.tools.addTab(self.image_tab, "Görsel")
+        self.tools.addTab(self.pdf_tab, "PDF")
+        self.tools.addTab(self.video_tab, "Video")
+        self.build_image_tools()
+        self.build_pdf_tools()
+        self.build_video_tools()
+
+        self.status = QLabel()
+        self.status.setObjectName("status")
+        self.status.setWordWrap(True)
+        layout.addWidget(self.status)
+
+    def build_image_tools(self) -> None:
+        layout = QVBoxLayout(self.image_tab)
         self.pick = QPushButton("Görsel seç…")
         self.pick.clicked.connect(self.choose_image)
         layout.addWidget(self.pick)
 
         self.wheel = QWidget()
-        wheel_layout = QGridLayout(self.wheel)
-        wheel_layout.setSpacing(8)
+        wheel_layout = QVBoxLayout(self.wheel)
+        wheel_layout.setContentsMargins(0, 0, 0, 0)
+        formats = QGridLayout()
         center = QLabel("Dönüştür")
         center.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        wheel_layout.addWidget(center, 1, 1)
+        formats.addWidget(center, 1, 1)
         for output_format, position in zip(FORMATS, WHEEL_POSITIONS, strict=True):
             button = QPushButton(output_format)
             button.setProperty("format", True)
             button.clicked.connect(lambda checked=False, fmt=output_format: self.convert(fmt))
-            wheel_layout.addWidget(button, *position)
+            formats.addWidget(button, *position)
+        wheel_layout.addLayout(formats)
+
+        editing = QGridLayout()
         self.resize_button = QPushButton("Görseli küçült…")
         self.resize_button.clicked.connect(self.choose_scale)
-        wheel_layout.addWidget(self.resize_button, 3, 0, 1, 3)
+        editing.addWidget(self.resize_button, 0, 0)
         self.crop_button = QPushButton("Görseli kırp…")
         self.crop_button.clicked.connect(self.choose_crop)
-        wheel_layout.addWidget(self.crop_button, 4, 0, 1, 3)
+        editing.addWidget(self.crop_button, 0, 1)
         self.compress_button = QPushButton("Görseli sıkıştır…")
         self.compress_button.clicked.connect(self.choose_compression)
-        wheel_layout.addWidget(self.compress_button, 5, 0, 1, 3)
+        editing.addWidget(self.compress_button, 1, 0)
         self.orientation_button = QPushButton("Döndür ve yansıt…")
         self.orientation_button.clicked.connect(self.choose_orientation)
-        wheel_layout.addWidget(self.orientation_button, 6, 0, 1, 3)
-        self.wheel.hide()
+        editing.addWidget(self.orientation_button, 1, 1)
+        wheel_layout.addLayout(editing)
         layout.addWidget(self.wheel)
+        self.wheel.hide()
 
+        self.images_pdf_button = QPushButton("Görsellerden PDF…")
+        self.images_pdf_button.clicked.connect(self.choose_images_for_pdf)
+        layout.addWidget(self.images_pdf_button)
+
+        self.qr_button = QPushButton("QR kodu oku…")
+        self.qr_button.clicked.connect(self.choose_qr)
+        layout.addWidget(self.qr_button)
+        layout.addStretch()
+
+    def build_pdf_tools(self) -> None:
+        layout = QVBoxLayout(self.pdf_tab)
         self.pdf_button = QPushButton("PDF birleştir…")
         self.pdf_button.clicked.connect(lambda: self.choose_pdfs())
         layout.addWidget(self.pdf_button)
@@ -150,11 +195,10 @@ class Window(QWidget):
         self.pages_button = QPushButton("PDF’den sayfa çıkar…")
         self.pages_button.clicked.connect(self.choose_pages)
         layout.addWidget(self.pages_button)
+        layout.addStretch()
 
-        self.images_pdf_button = QPushButton("Görsellerden PDF…")
-        self.images_pdf_button.clicked.connect(self.choose_images_for_pdf)
-        layout.addWidget(self.images_pdf_button)
-
+    def build_video_tools(self) -> None:
+        layout = QVBoxLayout(self.video_tab)
         self.audio_button = QPushButton("Videodan MP3 çıkar…")
         self.audio_button.clicked.connect(self.choose_video)
         layout.addWidget(self.audio_button)
@@ -166,15 +210,7 @@ class Window(QWidget):
         self.trim_button = QPushButton("Videoyu kes…")
         self.trim_button.clicked.connect(self.choose_trim)
         layout.addWidget(self.trim_button)
-
-        self.qr_button = QPushButton("QR kodu oku…")
-        self.qr_button.clicked.connect(self.choose_qr)
-        layout.addWidget(self.qr_button)
-
-        self.status = QLabel()
-        self.status.setObjectName("status")
-        self.status.setWordWrap(True)
-        layout.addWidget(self.status)
+        layout.addStretch()
 
     def start_drag_monitor(self) -> None:
         if QApplication.platformName() != "xcb":
@@ -209,10 +245,19 @@ class Window(QWidget):
         finally:
             self.set_drag_monitor_enabled(True)
         paths = tuple(dict.fromkeys(Path(filename) for filename in filenames))
+        self.select_files(paths)
+
+    def select_files(self, paths: tuple[Path, ...]) -> bool:
+        if not paths:
+            return False
         if len(paths) == 1:
             self.select_file(paths[0])
-        elif paths:
-            self.select_batch(paths)
+        elif all(path.suffix.lower() == ".pdf" for path in paths):
+            self.select_pdf(paths[0])
+            QTimer.singleShot(0, lambda: self.choose_pdfs(paths))
+        else:
+            return self.select_batch(paths)
+        return True
 
     def select_batch(self, paths: tuple[Path, ...]) -> bool:
         if any(path.suffix.lower() in (*VIDEO_EXTENSIONS, ".pdf") for path in paths):
@@ -221,6 +266,7 @@ class Window(QWidget):
         self.source = None
         self.batch_sources = paths
         self.drop_zone.setText(f"{len(paths)} görsel seçildi")
+        self.tools.setCurrentWidget(self.image_tab)
         self.wheel.show()
         self.resize_button.hide()
         self.crop_button.hide()
@@ -246,6 +292,7 @@ class Window(QWidget):
         self.crop_button.show()
         self.compress_button.show()
         self.orientation_button.show()
+        self.tools.setCurrentWidget(self.image_tab)
         self.drop_zone.setText(source.name)
         self.wheel.show()
         self.audio_button.setText("Videodan MP3 çıkar…")
@@ -254,6 +301,7 @@ class Window(QWidget):
     def select_video(self, source: Path) -> None:
         self.batch_sources = ()
         self.source = source
+        self.tools.setCurrentWidget(self.video_tab)
         self.drop_zone.setText(source.name)
         self.wheel.hide()
         self.audio_button.setText("MP3 olarak kaydet")
@@ -262,6 +310,7 @@ class Window(QWidget):
     def select_pdf(self, source: Path) -> None:
         self.batch_sources = ()
         self.source = source
+        self.tools.setCurrentWidget(self.pdf_tab)
         self.drop_zone.setText(source.name)
         self.wheel.hide()
         self.audio_button.setText("Videodan MP3 çıkar…")
@@ -336,11 +385,7 @@ class Window(QWidget):
     def dropEvent(self, event: QDropEvent) -> None:
         if self.job is not None:
             return
-        paths = local_drop_paths(event)
-        if len(paths) == 1:
-            self.select_file(paths[0])
-            accept_copy(event)
-        elif paths and self.select_batch(paths):
+        if self.select_files(local_drop_paths(event)):
             accept_copy(event)
 
     def set_drag_monitor_enabled(self, enabled: bool) -> None:
@@ -608,12 +653,7 @@ def open_startup_files(window: Window, paths: tuple[Path, ...]) -> None:
         if not path.is_file():
             window.status.setText(f"Dosya bulunamadı: {path.name}")
             return
-    if len(paths) == 1:
-        window.select_file(paths[0])
-    elif paths and all(path.suffix.lower() == ".pdf" for path in paths):
-        QTimer.singleShot(0, lambda: window.choose_pdfs(paths))
-    elif paths:
-        window.select_batch(paths)
+    window.select_files(paths)
 
 
 def main() -> int:
