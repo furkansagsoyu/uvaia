@@ -48,6 +48,12 @@ dikey yansıt ve sonucu önizle. **Kopyayı kaydet** değişiklikleri
 anında güncellenir. **Kopyayı kaydet** ayarlanmış görseli
 `foto-ayarli.png` gibi ayrı bir dosyaya yazar.
 
+**Görsel bilgileri…** ile piksel boyutunu, kamera bilgisini ve EXIF konum
+etiketinin bulunup bulunmadığını gör. **Meta verisiz PNG kaydet** seçeneği
+görselin görünür yönünü ve şeffaflığını koruyarak yeni bir PNG oluşturur.
+Kaynak EXIF, konum, XMP, metin etiketleri ve ICC profili kopyaya aktarılmaz.
+Gömülü renk profili varsa çıktı sRGB’ye dönüştürülür.
+
 ## Cinnamon ve Nemo menülerine ekleme
 
 ```bash

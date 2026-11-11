@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QInputDialog,
     QLabel,
     QMenu,
+    QMessageBox,
     QPlainTextEdit,
     QProgressBar,
     QPushButton,
@@ -44,6 +45,7 @@ from drag_wheel import (
 from file_order_dialog import FileOrderDialog
 from image_adjust_dialog import ImageAdjustDialog
 from image_conversion import FORMATS, adjust_image, compress_image, convert_image, convert_images
+from image_metadata import inspect_image, save_clean_png
 from image_preview import read_preview_image, to_qimage
 from job_progress import JobCancelled, JobProgress
 from ocr_tools import OCR_DPI, OCR_EXPORT_FORMATS, ocr_image, ocr_pdf
@@ -262,6 +264,10 @@ class Window(QWidget):
         self.image_ocr_button = QPushButton("Görseldeki yazıyı oku (OCR)…")
         self.image_ocr_button.clicked.connect(self.choose_image_ocr)
         layout.addWidget(self.image_ocr_button)
+
+        self.metadata_button = QPushButton("Görsel bilgileri…")
+        self.metadata_button.clicked.connect(self.choose_image_metadata)
+        layout.addWidget(self.metadata_button)
         layout.addStretch()
 
     def build_pdf_tools(self) -> None:
@@ -683,6 +689,37 @@ class Window(QWidget):
         finally:
             self.set_drag_monitor_enabled(self.job is None)
 
+    def choose_image_metadata(self) -> None:
+        if self.job is not None:
+            return
+        self.set_drag_monitor_enabled(False)
+        try:
+            source = self.choose_image_source("Bilgilerini görmek istediğin görseli seç")
+            if source is None:
+                return
+            try:
+                description = inspect_image(source)
+            except Image.DecompressionBombError:
+                self.status.setText("Görsel güvenli işlem boyutunu aşıyor.")
+                return
+            except (OSError, ValueError) as error:
+                self.status.setText(f"Görsel bilgileri okunamadı: {error}")
+                return
+            dialog = QMessageBox(self)
+            dialog.setWindowTitle("Görsel bilgileri")
+            dialog.setTextFormat(Qt.TextFormat.PlainText)
+            dialog.setText(description)
+            save = dialog.addButton("Meta verisiz PNG kaydet", QMessageBox.ButtonRole.AcceptRole)
+            dialog.addButton("Kapat", QMessageBox.ButtonRole.RejectRole)
+            try:
+                dialog.exec()
+                if dialog.clickedButton() is save:
+                    self.start_job(partial(save_clean_png, source), "Temiz PNG hazırlanıyor…")
+            finally:
+                dialog.deleteLater()
+        finally:
+            self.set_drag_monitor_enabled(self.job is None)
+
     def choose_image_ocr(self) -> None:
         if self.job is not None:
             return
@@ -1070,6 +1107,7 @@ class Window(QWidget):
         self.video_speed_button.setEnabled(enabled)
         self.qr_button.setEnabled(enabled)
         self.image_ocr_button.setEnabled(enabled)
+        self.metadata_button.setEnabled(enabled)
 
     def closeEvent(self, event: QCloseEvent) -> None:
         if self.job is not None:
