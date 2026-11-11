@@ -98,7 +98,19 @@ veya aralıkları yaz. Uvaia sayfaları girdiğin sırayla, kaynak PDF’nin kla
 **PDF’den metin çıkar…** ile tüm belgeyi veya `1, 3-5` gibi bir sayfa
 seçimini işle. Uvaia metin içeren sayfaları, sayfa numaralarıyla birlikte
 `belge-metin.txt` dosyasına UTF-8 olarak kaydeder. Bu araç PDF’nin seçilebilir
-metin katmanını kullanır. Görüntü olarak taranmış sayfalarda OCR yapmaz.
+metin katmanını kullanır.
+
+## Taranmış PDF’yi OCR ile okuma
+
+Linux Mint’te Tesseract ve dil paketlerini bir kez kur:
+
+```bash
+sudo apt install tesseract-ocr tesseract-ocr-tur tesseract-ocr-eng
+```
+
+PDF sekmesinde **Taranmış PDF’yi oku (OCR)…** seçeneğini aç. Tüm belgeyi veya
+`1, 3-5` gibi sayfaları seç. Uvaia Türkçe ve İngilizce yazıyı yerel olarak
+tanır ve kaynak klasöre `belge-ocr.txt` olarak kaydeder.
 
 ## PDF sayfalarını döndürme
 

@@ -34,17 +34,19 @@ def page_indices(document: pdfium.PdfDocument, selection: str) -> Sequence[int]:
 
 
 @contextmanager
-def page_image(document: pdfium.PdfDocument, index: int) -> Iterator[Image.Image]:
+def page_image(
+    document: pdfium.PdfDocument, index: int, *, scale: float = SCALE
+) -> Iterator[Image.Image]:
     """Görseli kullanan işlem bitene kadar PDFium bitmap’ini açık tutar."""
     try:
         with closing(document[index]) as page:
             width, height = page.get_size()
             if (
                 not (isfinite(width) and isfinite(height) and width > 0 and height > 0)
-                or ceil(width * SCALE) * ceil(height * SCALE) > MAX_PAGE_PIXELS
+                or ceil(width * scale) * ceil(height * scale) > MAX_PAGE_PIXELS
             ):
                 raise ValueError("Sayfa görüntüleme boyutu sınırını aşıyor.")
-            with closing(page.render(scale=SCALE, rev_byteorder=True)) as bitmap:
+            with closing(page.render(scale=scale, rev_byteorder=True)) as bitmap:
                 yield bitmap.to_pil()
     except pdfium.PdfiumError as error:
         raise ValueError(f"{index + 1}. sayfanın görüntüsü oluşturulamadı.") from error

@@ -46,6 +46,7 @@ from image_conversion import FORMATS, adjust_image, compress_image, convert_imag
 from image_preview import read_preview_image, to_qimage
 from orientation_dialog import OrientationDialog
 from output_files import SavedOutputs
+from pdf_ocr import ocr_pdf
 from pdf_render import render_pdf_pages
 from pdf_render_dialog import PdfRenderDialog
 from pdf_rotate_dialog import PdfRotateDialog
@@ -251,6 +252,10 @@ class Window(QWidget):
         self.pdf_text_button = QPushButton("PDF’den metin çıkar…")
         self.pdf_text_button.clicked.connect(self.choose_pdf_text)
         layout.addWidget(self.pdf_text_button)
+
+        self.pdf_ocr_button = QPushButton("Taranmış PDF’yi oku (OCR)…")
+        self.pdf_ocr_button.clicked.connect(self.choose_pdf_ocr)
+        layout.addWidget(self.pdf_ocr_button)
 
         self.pdf_qr_button = QPushButton("PDF’de QR kodu ara…")
         self.pdf_qr_button.clicked.connect(self.choose_pdf_qr)
@@ -720,6 +725,14 @@ class Window(QWidget):
             allow_all=True,
         )
 
+    def choose_pdf_ocr(self) -> None:
+        self.run_pdf_page_selection(
+            "Taranmış PDF’yi oku",
+            "Taranmış sayfalar okunuyor…",
+            ocr_pdf,
+            allow_all=True,
+        )
+
     def run_pdf_page_selection(
         self,
         title: str,
@@ -879,6 +892,7 @@ class Window(QWidget):
         self.pdf_rotate_button.setEnabled(enabled)
         self.pdf_render_button.setEnabled(enabled)
         self.pdf_text_button.setEnabled(enabled)
+        self.pdf_ocr_button.setEnabled(enabled)
         self.pdf_qr_button.setEnabled(enabled)
         self.images_pdf_button.setEnabled(enabled)
         self.video_convert_button.setEnabled(enabled)
