@@ -1,6 +1,6 @@
 # Uvaia
 
-Linux Mint Cinnamon/X11 için yerel görsel, PDF ve video araçları.
+Linux Mint Cinnamon/X11 için yerel görsel, PDF, video, ses ve arşiv araçları.
 
 ## Çalıştırma
 
@@ -10,7 +10,7 @@ python3 -m venv .venv
 .venv/bin/python uvaia.py
 ```
 
-Araçlar **Görsel**, **PDF**, **Video** ve **Arşiv** sekmelerinde. Ana pencereye dosya
+Araçlar **Görsel**, **PDF**, **Video**, **Ses** ve **Arşiv** sekmelerinde. Ana pencereye dosya
 bıraktığında Uvaia ilgili sekmeyi açar. Birden fazla PDF bırakmak birleştirme
 listesini açar.
 
@@ -208,6 +208,12 @@ her kodun bulunduğu sayfa numarası gösterilir.
 Uvaia görüntünün hızını ve varsa ilk ses parçasının temposunu birlikte
 değiştirir. Çıktı kaynak klasöre `video-hiz-1.50x.mp4` gibi bir adla yazılır.
 
+## Ses dönüştürme
+
+Bir ses dosyasını pencereye bırak ve **Ses → Sesi dönüştür…** ile MP3, WAV
+veya FLAC seç. Çıktı kaynak klasöre kaydedilir. İlerlemeyi görebilir ve yarım
+çıktı bırakmadan işlemi iptal edebilirsin.
+
 ## ZIP arşivleri
 
 **Arşiv → ZIP oluştur…** ile seçilen dosyaları ilk dosyanın klasöründe
@@ -216,5 +222,5 @@ içeriği arşivin yanındaki yeni bir klasöre çıkar. Çıktı adları çakı
 eklenir. İptal edilen ZIP işlemlerinin yarım çıktıları temizlenir.
 
 ZIP açma, en fazla 10.000 öğe ve 8 GiB açılmış içerik kabul eder.
-Nemo sağ tık menüsüne ZIP desteği eklemek için `install_desktop.py` komutunu
+Nemo sağ tık menüsüne ZIP ve ses dosyası desteği eklemek için `install_desktop.py` komutunu
 yeniden çalıştırabilirsin.

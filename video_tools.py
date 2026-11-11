@@ -83,7 +83,7 @@ def run_ffmpeg(
     )
 
 
-def run_video_process(
+def run_ffmpeg_process(
     command: list[str],
     progress: JobProgress,
     *,
@@ -128,13 +128,15 @@ def run_video_process(
     )
 
 
-def probe_video_duration(source: Path, progress: JobProgress) -> int | None:
+def probe_media_duration(
+    source: Path, progress: JobProgress, *, stream: str = "0:V:0"
+) -> int | None:
     command = ffmpeg_command(
-        source, "-", ("-t", "0", "-map", "0:V:0", "-c", "copy", "-f", "null"),
+        source, "-", ("-t", "0", "-map", stream, "-c", "copy", "-f", "null"),
         loglevel="info",
     )
     try:
-        probe = run_video_process(command, progress, timeout=8)
+        probe = run_ffmpeg_process(command, progress, timeout=8)
     except subprocess.TimeoutExpired:
         return None
     match = INPUT_DURATION.search(probe.stderr)
@@ -249,7 +251,7 @@ def save_encoded_video(
     limit = ("-t", format_timestamp(duration_ms)) if duration_ms is not None else ()
     total_us = None
     if progress is not None:
-        total_us = duration_ms * 1000 if duration_ms is not None else probe_video_duration(
+        total_us = duration_ms * 1000 if duration_ms is not None else probe_media_duration(
             source, progress
         )
         if total_us is not None:
@@ -289,7 +291,7 @@ def save_encoded_video(
             process = run_ffmpeg(source, output, options, seek=seek)
         else:
             command = ffmpeg_command(source, output, options, seek=seek)
-            process = run_video_process(command, progress, on_time=report_time)
+            process = run_ffmpeg_process(command, progress, on_time=report_time)
         if process.returncode:
             if b"matches no streams" in process.stderr:
                 raise ValueError("Dosyada video akışı bulunamadı.")

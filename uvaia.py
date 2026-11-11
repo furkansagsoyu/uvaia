@@ -33,6 +33,7 @@ from PySide6.QtWidgets import (
 from Xlib import error as x11_error
 
 from archive_tools import create_zip, extract_zip
+from audio_tools import AUDIO_EXPORT_OPTIONS, AUDIO_EXTENSIONS, convert_audio
 from compression_dialog import CompressionDialog
 from crop_dialog import CropDialog
 from drag_wheel import (
@@ -168,7 +169,7 @@ class Window(QWidget):
         title.setObjectName("title")
         layout.addWidget(title)
 
-        self.drop_zone = QLabel("Görsel, PDF, video veya ZIP bırak")
+        self.drop_zone = QLabel("Görsel, PDF, video, ses veya ZIP bırak")
         self.drop_zone.setObjectName("dropZone")
         self.drop_zone.setTextFormat(Qt.TextFormat.PlainText)
         self.drop_zone.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -181,14 +182,17 @@ class Window(QWidget):
         self.image_tab = QWidget()
         self.pdf_tab = QWidget()
         self.video_tab = QWidget()
+        self.audio_tab = QWidget()
         self.archive_tab = QWidget()
         self.tools.addTab(self.image_tab, "Görsel")
         self.tools.addTab(self.pdf_tab, "PDF")
         self.tools.addTab(self.video_tab, "Video")
+        self.tools.addTab(self.audio_tab, "Ses")
         self.tools.addTab(self.archive_tab, "Arşiv")
         self.build_image_tools()
         self.build_pdf_tools()
         self.build_video_tools()
+        self.build_audio_tools()
         self.build_archive_tools()
 
         self.status = QLabel()
@@ -343,6 +347,13 @@ class Window(QWidget):
         layout.addWidget(self.video_speed_button)
         layout.addStretch()
 
+    def build_audio_tools(self) -> None:
+        layout = QVBoxLayout(self.audio_tab)
+        self.audio_convert_button = QPushButton("Sesi dönüştür…")
+        self.audio_convert_button.clicked.connect(self.choose_audio_conversion)
+        layout.addWidget(self.audio_convert_button)
+        layout.addStretch()
+
     def build_archive_tools(self) -> None:
         layout = QVBoxLayout(self.archive_tab)
         self.zip_create_button = QPushButton("ZIP oluştur…")
@@ -364,7 +375,7 @@ class Window(QWidget):
             return
         wheel.file_dropped.connect(self.convert_drop)
         QApplication.instance().aboutToQuit.connect(self.monitor.shutdown)
-        self.drop_zone.setText("Görsel, PDF, video veya ZIP bırak. Görsel çarkı için Shift’e bas.")
+        self.drop_zone.setText("Görsel, PDF, video, ses veya ZIP bırak. Görsel çarkı için Shift’e bas.")
 
     def convert_drop(self, paths: tuple[Path, ...], output_format: str) -> None:
         if self.job is not None:
@@ -402,7 +413,7 @@ class Window(QWidget):
         return True
 
     def select_batch(self, paths: tuple[Path, ...]) -> bool:
-        if any(path.suffix.lower() in (*VIDEO_EXTENSIONS, ".pdf", ".zip") for path in paths):
+        if any(path.suffix.lower() in (*VIDEO_EXTENSIONS, *AUDIO_EXTENSIONS, ".pdf", ".zip") for path in paths):
             self.status.setText("Toplu dönüştürme için yalnızca görselleri seç.")
             return False
         self.source = None
@@ -426,7 +437,9 @@ class Window(QWidget):
         elif extension == ".pdf":
             self.select_pdf(source)
         elif extension == ".zip":
-            self.select_archive(source)
+            self.select_tool_file(source, self.archive_tab)
+        elif extension in AUDIO_EXTENSIONS:
+            self.select_tool_file(source, self.audio_tab)
         else:
             self.select_image(source)
 
@@ -445,31 +458,55 @@ class Window(QWidget):
         self.clear_result()
 
     def select_video(self, source: Path) -> None:
-        self.batch_sources = ()
-        self.source = source
-        self.tools.setCurrentWidget(self.video_tab)
-        self.drop_zone.setText(source.name)
-        self.wheel.hide()
+        self.select_tool_file(source, self.video_tab)
         self.audio_button.setText("MP3 olarak kaydet")
-        self.clear_result()
 
     def select_pdf(self, source: Path) -> None:
+        self.select_tool_file(source, self.pdf_tab)
+
+    def select_tool_file(self, source: Path, tab: QWidget) -> None:
         self.batch_sources = ()
         self.source = source
-        self.tools.setCurrentWidget(self.pdf_tab)
+        self.tools.setCurrentWidget(tab)
         self.drop_zone.setText(source.name)
         self.wheel.hide()
         self.audio_button.setText("Videodan MP3 çıkar…")
         self.clear_result()
 
-    def select_archive(self, source: Path) -> None:
-        self.batch_sources = ()
-        self.source = source
-        self.tools.setCurrentWidget(self.archive_tab)
-        self.drop_zone.setText(source.name)
-        self.wheel.hide()
-        self.audio_button.setText("Videodan MP3 çıkar…")
-        self.clear_result()
+    def choose_audio_source(self) -> Path | None:
+        source = self.source
+        if source is not None and source.suffix.lower() in AUDIO_EXTENSIONS:
+            return source
+        extensions = " ".join(f"*{ext} *{ext.upper()}" for ext in AUDIO_EXTENSIONS)
+        filename, _ = QFileDialog.getOpenFileName(
+            self, "Dönüştürülecek ses dosyasını seç", filter=f"Ses ({extensions})"
+        )
+        if not filename:
+            return None
+        source = Path(filename)
+        self.select_tool_file(source, self.audio_tab)
+        return source
+
+    def choose_audio_conversion(self) -> None:
+        if self.job is not None:
+            return
+        self.set_drag_monitor_enabled(False)
+        try:
+            source = self.choose_audio_source()
+            if source is None:
+                return
+            formats = list(AUDIO_EXPORT_OPTIONS)
+            default = formats.index("WAV" if source.suffix.lower() == ".mp3" else "MP3")
+            output_format, accepted = QInputDialog.getItem(
+                self, "Sesi dönüştür", "Çıktı biçimi", formats, default, False
+            )
+            if accepted:
+                self.start_progress_job(
+                    lambda progress: convert_audio(source, output_format, progress=progress),
+                    "Ses dönüştürülüyor…",
+                )
+        finally:
+            self.set_drag_monitor_enabled(self.job is None)
 
     def choose_zip_create(self) -> None:
         if self.job is not None:
@@ -500,7 +537,7 @@ class Window(QWidget):
                 if not filename:
                     return
                 source = Path(filename)
-                self.select_archive(source)
+                self.select_tool_file(source, self.archive_tab)
             self.start_progress_job(
                 lambda progress: extract_zip(source, progress=progress),
                 "ZIP açılıyor…",
@@ -1198,6 +1235,7 @@ class Window(QWidget):
         self.frame_button.setEnabled(enabled)
         self.trim_button.setEnabled(enabled)
         self.video_speed_button.setEnabled(enabled)
+        self.audio_convert_button.setEnabled(enabled)
         self.zip_create_button.setEnabled(enabled)
         self.zip_extract_button.setEnabled(enabled)
         self.qr_button.setEnabled(enabled)

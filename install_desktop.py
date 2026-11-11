@@ -9,7 +9,7 @@ from pathlib import Path
 
 APP_ID = "io.github.furkansagsoyu.Uvaia"
 ICON = "applications-graphics"
-EXTENSIONS = "png;jpg;jpeg;webp;bmp;tif;tiff;gif;avif;ico;pdf;mp4;mkv;mov;webm;avi;zip;"
+EXTENSIONS = "png;jpg;jpeg;webp;bmp;tif;tiff;gif;avif;ico;pdf;mp4;mkv;mov;webm;avi;mp3;wav;flac;m4a;aac;ogg;opus;aif;aiff;zip;"
 
 
 def desktop_argument(path: Path) -> str:
@@ -37,7 +37,7 @@ def install(data_dir: Path, python: Path, app: Path) -> tuple[Path, Path]:
         f"""[Desktop Entry]
 Type=Application
 Name=Uvaia
-Comment=Yerel görsel, PDF, video ve arşiv araçları
+Comment=Yerel görsel, PDF, video, ses ve arşiv araçları
 Exec={command}
 Icon={ICON}
 Terminal=false
