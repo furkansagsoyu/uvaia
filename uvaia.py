@@ -450,8 +450,10 @@ class Window(QWidget):
                 self, "Videoyu dönüştür", "Çıktı biçimi", formats, default, False
             )
             if accepted:
-                operation = partial(convert_video, source, output_format)
-                self.start_job(operation, "Video dönüştürülüyor…")
+                self.start_progress_job(
+                    lambda progress: convert_video(source, output_format, progress=progress),
+                    "Video dönüştürülüyor…",
+                )
         finally:
             self.set_drag_monitor_enabled(self.job is None)
 
@@ -505,8 +507,11 @@ class Window(QWidget):
             dialog = VideoTrimDialog(source, self)
             try:
                 if dialog.exec() == QDialog.DialogCode.Accepted and dialog.interval:
-                    operation = partial(trim_video, source, *dialog.interval)
-                    self.start_job(operation, "Video kesiti hazırlanıyor…")
+                    start, end = dialog.interval
+                    self.start_progress_job(
+                        lambda progress: trim_video(source, start, end, progress=progress),
+                        "Video kesiti hazırlanıyor…",
+                    )
             finally:
                 dialog.deleteLater()
         finally:
@@ -947,11 +952,11 @@ class Window(QWidget):
         self.begin_job(FileJob(operation, self), status, on_success=on_success)
 
     def start_progress_job(
-        self, operation: Callable[[JobProgress], FileResult], status: str, *, unit: str
+        self, operation: Callable[[JobProgress], FileResult], status: str, *, unit: str | None = None
     ) -> None:
         job = ProgressFileJob(operation, self)
         job.progress_changed.connect(self.update_job_progress)
-        self.job_progress.setFormat(f"%v / %m {unit}")
+        self.job_progress.setFormat(f"%v / %m {unit}" if unit else "%p%")
         self.job_progress.setRange(0, 0)
         self.cancel_job_button.setEnabled(True)
         self.progress_actions.show()

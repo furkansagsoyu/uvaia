@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import os
 import re
+import selectors
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
+from time import monotonic
 from typing import BinaryIO
 
 from imageio_ffmpeg import get_ffmpeg_exe
 
+from job_progress import JobProgress
 from output_files import save_new_file
 
 VIDEO_CONTAINERS = {".mp4": "mp4", ".mkv": "matroska", ".mov": "mov", ".webm": "webm", ".avi": "avi"}
@@ -23,7 +28,34 @@ VIDEO_EXPORT_OPTIONS = {
         "-c:a", "libopus", "-b:a", "128k", "-f", "webm",
     ),
 }
+INPUT_DURATION = re.compile(
+    rb"(?m)^  Duration: ([0-9]+):([0-9]{2}):([0-9]{2})(?:\.([0-9]+))?,"
+)
 TIMESTAMP = re.compile(r"([0-9]{1,7}(?::[0-9]{1,2}){0,2})(?:[.,]([0-9]{1,3}))?")
+
+
+def ffmpeg_command(
+    source: Path,
+    output: Path | str,
+    options: tuple[str, ...],
+    *,
+    seek: str | None = None,
+    loglevel: str = "error",
+) -> list[str]:
+    try:
+        ffmpeg = get_ffmpeg_exe()
+    except RuntimeError as error:
+        raise ValueError("FFmpeg bulunamadı. Uvaia’nın bağımlılıklarını yeniden kur.") from error
+
+    command = [
+        ffmpeg,
+        "-nostdin", "-hide_banner", "-loglevel", loglevel, "-y",
+        "-protocol_whitelist", "file",
+    ]
+    if seek is not None:
+        command.extend(("-ss", seek))
+    command.extend(("-i", str(source.absolute()), *options, str(output)))
+    return command
 
 
 def run_ffmpeg(
@@ -34,22 +66,74 @@ def run_ffmpeg(
     seek: str | None = None,
     timeout: float | None = None,
 ) -> subprocess.CompletedProcess[bytes]:
-    try:
-        ffmpeg = get_ffmpeg_exe()
-    except RuntimeError as error:
-        raise ValueError("FFmpeg bulunamadı. Uvaia’nın bağımlılıklarını yeniden kur.") from error
-
-    command = [
-        ffmpeg,
-        "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
-        "-protocol_whitelist", "file",
-    ]
-    if seek is not None:
-        command.extend(("-ss", seek))
-    command.extend(("-i", str(source.absolute()), *options, str(output)))
+    command = ffmpeg_command(source, output, options, seek=seek)
     return subprocess.run(
         command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout
     )
+
+
+def run_video_process(
+    command: list[str],
+    progress: JobProgress,
+    *,
+    on_time: Callable[[int], None] | None = None,
+    timeout: float | None = None,
+) -> subprocess.CompletedProcess[bytes]:
+    progress.check_cancelled()
+    buffers = {"stdout": bytearray(), "stderr": bytearray()}
+    pending = b""
+    deadline = monotonic() + timeout if timeout is not None else None
+    with subprocess.Popen(
+        command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    ) as process, selectors.DefaultSelector() as selector:
+        assert process.stdout is not None and process.stderr is not None
+        selector.register(process.stdout, selectors.EVENT_READ, "stdout")
+        selector.register(process.stderr, selectors.EVENT_READ, "stderr")
+        try:
+            while selector.get_map() or process.poll() is None:
+                progress.check_cancelled()
+                if deadline is not None and monotonic() >= deadline:
+                    raise subprocess.TimeoutExpired(command, timeout)
+                for key, _ in selector.select(0.15):
+                    chunk = os.read(key.fd, 8192)
+                    if not chunk:
+                        selector.unregister(key.fileobj)
+                        continue
+                    buffers[key.data].extend(chunk)
+                    if key.data == "stdout" and on_time is not None:
+                        lines = (pending + chunk).split(b"\n")
+                        pending = lines.pop()
+                        for line in lines:
+                            name, _, value = line.strip().partition(b"=")
+                            if name == b"out_time_us" and value.isdigit():
+                                on_time(int(value))
+            progress.check_cancelled()
+        except BaseException:
+            process.kill()
+            raise
+
+    return subprocess.CompletedProcess(
+        command, process.returncode, bytes(buffers["stdout"]), bytes(buffers["stderr"])
+    )
+
+
+def probe_video_duration(source: Path, progress: JobProgress) -> int | None:
+    command = ffmpeg_command(
+        source, "-", ("-t", "0", "-map", "0:V:0", "-c", "copy", "-f", "null"),
+        loglevel="info",
+    )
+    try:
+        probe = run_video_process(command, progress, timeout=8)
+    except subprocess.TimeoutExpired:
+        return None
+    match = INPUT_DURATION.search(probe.stderr)
+    if probe.returncode or match is None:
+        return None
+
+    hours, minutes, seconds = (int(value) for value in match.groups()[:3])
+    fraction = int((match[4] or b"").ljust(6, b"0")[:6])
+    microseconds = ((hours * 60 + minutes) * 60 + seconds) * 1_000_000 + fraction
+    return microseconds or None
 
 
 def extract_mp3(source: Path) -> Path:
@@ -146,9 +230,20 @@ def save_encoded_video(
     output_format: str,
     *,
     seek: str | None = None,
-    duration: str | None = None,
+    duration_ms: int | None = None,
+    progress: JobProgress | None = None,
 ) -> Path:
-    limit = ("-t", duration) if duration is not None else ()
+    limit = ("-t", format_timestamp(duration_ms)) if duration_ms is not None else ()
+    total_us = None
+    if progress is not None:
+        total_us = duration_ms * 1000 if duration_ms is not None else probe_video_duration(
+            source, progress
+        )
+        progress.report(0, 100 if total_us else 0)
+
+    def report_time(elapsed_us: int) -> None:
+        if progress is not None and total_us:
+            progress.report(min(99, elapsed_us * 100 // total_us), 100)
     options = (
         *limit,
         "-map", "0:V:0", "-map", "0:a:0?",
@@ -158,35 +253,50 @@ def save_encoded_video(
     )
 
     def encode(stream: BinaryIO) -> None:
-        process = run_ffmpeg(source, Path(stream.name), options, seek=seek)
+        output = Path(stream.name)
+        if progress is None:
+            process = run_ffmpeg(source, output, options, seek=seek)
+        else:
+            command = ffmpeg_command(source, output, options, seek=seek)
+            process = run_video_process(command, progress, on_time=report_time)
         if process.returncode:
             if b"matches no streams" in process.stderr:
                 raise ValueError("Dosyada video akışı bulunamadı.")
             raise ValueError(f"Video okunamadı veya {output_format} yazılamadı: {source.name}")
         if not re.search(rb"(?m)^frame=[ \t]*[1-9][0-9]*[ \t]*$", process.stdout):
-            if duration is not None:
+            if duration_ms is not None:
                 raise ValueError("Bu aralıkta video karesi yok. Daha erken bir başlangıç seç.")
             raise ValueError("Dosyada kaydedilebilecek video karesi yok.")
+        if progress is not None:
+            progress.check_cancelled()
 
-    return save_new_file(destination, encode)
+    saved = save_new_file(destination, encode)
+    if progress is not None:
+        progress.report(100, 100)
+    return saved
 
 
-def trim_video(source: Path, start: int, end: int) -> Path:
+def trim_video(
+    source: Path, start: int, end: int, *, progress: JobProgress | None = None
+) -> Path:
     if start < 0 or end <= start:
         raise ValueError("Geçerli bir başlangıç ve bitiş zamanı seç.")
 
     seek = format_timestamp(start)
     finish = format_timestamp(end)
-    duration = format_timestamp(end - start)
     destination = source.with_name(f"{source.stem}-kesit-{seek}s-{finish}s.mp4")
-    return save_encoded_video(source, destination, "MP4", seek=seek, duration=duration)
+    return save_encoded_video(
+        source, destination, "MP4", seek=seek, duration_ms=end - start, progress=progress
+    )
 
 
-def convert_video(source: Path, output_format: str) -> Path:
+def convert_video(
+    source: Path, output_format: str, *, progress: JobProgress | None = None
+) -> Path:
     if output_format not in VIDEO_EXPORT_OPTIONS:
         raise ValueError("Video biçimi olarak MP4 veya WebM seç.")
     destination = source.with_suffix(f".{output_format.lower()}")
-    return save_encoded_video(source, destination, output_format)
+    return save_encoded_video(source, destination, output_format, progress=progress)
 
 
 def mute_video(source: Path) -> Path:

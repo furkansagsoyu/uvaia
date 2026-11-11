@@ -138,6 +138,8 @@ tüm belge için boş bırak veya `1, 3-5` gibi bir seçim yaz. Uvaia her sayfay
 
 Video sekmesinde **Videoyu dönüştür…** ile MP4 veya WebM seç. Uvaia ilk video
 akışını ve varsa ilk ses parçasını seçtiğin biçimde kaynak klasöre kaydeder.
+Dönüştürme ve kesme sırasında ilerlemeyi görebilirsin. **İptal et** çalışan
+FFmpeg işlemini durdurur ve yarım video dosyasını kaydetmez.
 
 ## Videodan MP3 çıkarma
 
