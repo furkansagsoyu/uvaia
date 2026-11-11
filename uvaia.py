@@ -9,16 +9,18 @@ from functools import partial
 from pathlib import Path
 
 from PIL import Image
-from PySide6.QtCore import Qt, QThread, QTimer, Signal, Slot
-from PySide6.QtGui import QCloseEvent, QDragEnterEvent, QDropEvent, QImage
+from PySide6.QtCore import QPoint, Qt, QThread, QTimer, QUrl, Signal, Slot
+from PySide6.QtGui import QCloseEvent, QDesktopServices, QDragEnterEvent, QDropEvent, QImage
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
     QDialogButtonBox,
     QFileDialog,
     QGridLayout,
+    QHBoxLayout,
     QInputDialog,
     QLabel,
+    QMenu,
     QPlainTextEdit,
     QPushButton,
     QTabWidget,
@@ -41,6 +43,7 @@ from drag_wheel import (
 from file_order_dialog import FileOrderDialog
 from image_conversion import FORMATS, compress_image, convert_image, convert_images
 from orientation_dialog import OrientationDialog
+from output_files import SavedOutputs
 from pdf_render import render_pdf_pages
 from pdf_render_dialog import PdfRenderDialog
 from pdf_rotate_dialog import PdfRotateDialog
@@ -76,13 +79,17 @@ QTabBar::tab:focus { border-top-color: #a1cbb4; }
 """
 
 
+FileResult = Path | SavedOutputs | str
+
+
 class FileJob(QThread):
     """Dosya işlemini pencereyi dondurmadan yürütür."""
 
     succeeded = Signal(str)
+    outputs_ready = Signal(object)
     failed = Signal(str)
 
-    def __init__(self, operation: Callable[[], Path | str], parent: QWidget) -> None:
+    def __init__(self, operation: Callable[[], FileResult], parent: QWidget) -> None:
         super().__init__(parent)
         self.operation = operation
 
@@ -94,8 +101,14 @@ class FileJob(QThread):
         except (OSError, ValueError) as error:
             self.failed.emit(str(error))
         else:
-            message = f"Kaydedildi: {output.name}" if isinstance(output, Path) else output
-            self.succeeded.emit(message)
+            if isinstance(output, Path):
+                self.outputs_ready.emit((output,))
+                self.succeeded.emit(f"Kaydedildi: {output.name}")
+            elif isinstance(output, SavedOutputs):
+                self.outputs_ready.emit(output.paths)
+                self.succeeded.emit(output.message)
+            else:
+                self.succeeded.emit(output)
 
 
 class Window(QWidget):
@@ -105,6 +118,7 @@ class Window(QWidget):
         super().__init__()
         self.source: Path | None = None
         self.batch_sources: tuple[Path, ...] = ()
+        self.output_paths: tuple[Path, ...] = ()
         self.job: FileJob | None = None
         self.monitor: WheelMonitor | None = None
         self.setWindowTitle("Uvaia")
@@ -143,6 +157,18 @@ class Window(QWidget):
         self.status.setObjectName("status")
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
+
+        self.output_actions = QWidget()
+        output_layout = QHBoxLayout(self.output_actions)
+        output_layout.setContentsMargins(0, 0, 0, 0)
+        self.open_output_button = QPushButton("Çıktıyı aç")
+        self.open_output_button.clicked.connect(self.open_output)
+        output_layout.addWidget(self.open_output_button)
+        self.open_folder_button = QPushButton("Çıktı klasörünü aç")
+        self.open_folder_button.clicked.connect(self.open_output_folder)
+        output_layout.addWidget(self.open_folder_button)
+        self.output_actions.hide()
+        layout.addWidget(self.output_actions)
 
     def build_image_tools(self) -> None:
         layout = QVBoxLayout(self.image_tab)
@@ -293,7 +319,7 @@ class Window(QWidget):
         self.compress_button.hide()
         self.orientation_button.hide()
         self.audio_button.setText("Videodan MP3 çıkar…")
-        self.status.clear()
+        self.clear_result()
         return True
 
     def select_file(self, source: Path) -> None:
@@ -316,7 +342,7 @@ class Window(QWidget):
         self.drop_zone.setText(source.name)
         self.wheel.show()
         self.audio_button.setText("Videodan MP3 çıkar…")
-        self.status.clear()
+        self.clear_result()
 
     def select_video(self, source: Path) -> None:
         self.batch_sources = ()
@@ -325,7 +351,7 @@ class Window(QWidget):
         self.drop_zone.setText(source.name)
         self.wheel.hide()
         self.audio_button.setText("MP3 olarak kaydet")
-        self.status.clear()
+        self.clear_result()
 
     def select_pdf(self, source: Path) -> None:
         self.batch_sources = ()
@@ -334,7 +360,7 @@ class Window(QWidget):
         self.drop_zone.setText(source.name)
         self.wheel.hide()
         self.audio_button.setText("Videodan MP3 çıkar…")
-        self.status.clear()
+        self.clear_result()
 
     def choose_video_source(self, title: str) -> Path | None:
         source = self.source
@@ -709,18 +735,60 @@ class Window(QWidget):
         )
         self.start_job(operation, action)
 
+    def clear_result(self) -> None:
+        self.status.clear()
+        self.show_output_actions(())
+
+    @Slot(object)
+    def show_output_actions(self, paths: tuple[Path, ...]) -> None:
+        self.output_paths = paths
+        self.output_actions.setVisible(bool(paths))
+        self.open_output_button.setVisible(len(paths) == 1)
+        folder_count = len({path.parent for path in paths})
+        label = "Çıktı klasörü seç…" if folder_count > 1 else "Çıktı klasörünü aç"
+        self.open_folder_button.setText(label)
+
+    def open_output(self) -> None:
+        if len(self.output_paths) == 1:
+            self.open_local_path(self.output_paths[0])
+
+    def open_output_folder(self) -> None:
+        folders = tuple(dict.fromkeys(path.parent for path in self.output_paths))
+        if len(folders) == 1:
+            self.open_local_path(folders[0])
+        elif folders:
+            menu = QMenu(self)
+            for folder in folders:
+                action = menu.addAction(str(folder).replace("&", "&&"))
+                action.setData(str(folder))
+            position = self.open_folder_button.mapToGlobal(
+                QPoint(0, self.open_folder_button.height())
+            )
+            selected = menu.exec(position)
+            if selected is not None:
+                self.open_local_path(Path(selected.data()))
+            menu.deleteLater()
+
+    def open_local_path(self, path: Path) -> None:
+        if not path.exists():
+            self.status.setText(f"Dosya veya klasör bulunamadı: {path.name}")
+        elif not QDesktopServices.openUrl(QUrl.fromLocalFile(str(path.absolute()))):
+            self.status.setText(f"Açılamadı: {path.name}")
+
     def start_job(
         self,
-        operation: Callable[[], Path | str],
+        operation: Callable[[], FileResult],
         status: str,
         *,
         on_success: Callable[[str], None] | None = None,
     ) -> None:
         self.set_drag_monitor_enabled(False)
+        self.show_output_actions(())
         self.status.setText(status)
         self.set_file_controls_enabled(False)
         self.job = FileJob(operation, self)
         self.job.succeeded.connect(on_success or self.status.setText)
+        self.job.outputs_ready.connect(self.show_output_actions)
         self.job.failed.connect(lambda message: self.status.setText(f"İşlem tamamlanamadı: {message}"))
         self.job.finished.connect(self.job_finished)
         self.job.finished.connect(self.job.deleteLater)

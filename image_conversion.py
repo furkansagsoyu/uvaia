@@ -8,7 +8,7 @@ from typing import BinaryIO
 
 from PIL import Image, ImageOps
 
-from output_files import save_new_file
+from output_files import SavedOutputs, save_new_file
 
 FORMATS = {"PNG": ".png", "JPG": ".jpg", "WebP": ".webp"}
 SOURCE_FORMATS = {"PNG": "PNG", "JPEG": "JPG", "WEBP": "WebP"}
@@ -97,24 +97,24 @@ def convert_image(
     return save_new_file(destination, lambda stream: image.save(stream, format=pillow_format))
 
 
-def convert_images(sources: tuple[Path, ...], output_format: str) -> str:
+def convert_images(sources: tuple[Path, ...], output_format: str) -> SavedOutputs:
     """Hatalı dosyaları atlayarak seçilen görselleri sırayla dönüştürür."""
-    converted = 0
+    saved: list[Path] = []
     failed: list[str] = []
     for source in sources:
         try:
-            convert_image(source, output_format)
+            saved.append(convert_image(source, output_format))
         except (OSError, ValueError, Image.DecompressionBombError):
             failed.append(source.name)
-        else:
-            converted += 1
 
     if failed:
         issue = f"{len(failed)} dosya dönüştürülemedi. İlk hata: {failed[0]}"
-        if converted == 0:
+        if not saved:
             raise ValueError(issue)
-        return f"{converted}/{len(sources)} görsel {output_format} olarak kaydedildi. {issue}"
-    return f"{converted} görsel {output_format} olarak kaydedildi."
+        message = f"{len(saved)}/{len(sources)} görsel {output_format} olarak kaydedildi. {issue}"
+    else:
+        message = f"{len(saved)} görsel {output_format} olarak kaydedildi."
+    return SavedOutputs(tuple(saved), message)
 
 
 def compress_image(source: Path, output_format: str, quality: int) -> Path:

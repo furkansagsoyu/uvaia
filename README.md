@@ -21,6 +21,10 @@ kaydedilir. Aynı isimde bir dosya varsa numaralı bir ad kullanılır. JPG çı
 şeffaf alanlar beyaz olur. Toplu seçimde her çıktı kendi kaynak klasörüne
 kaydedilir. Bir dosya hata verirse diğerleri işlenir ve sonuç özeti gösterilir.
 
+İşlem sonunda **Çıktıyı aç** ile tek dosyayı varsayılan uygulamada açabilir,
+**Çıktı klasörünü aç** ile dosyanın bulunduğu klasöre gidebilirsin. Çıktılar
+farklı klasörlerdeyse açacağın klasörü menüden seç.
+
 **Görseli küçült…** ile yeni boyutu yüzde olarak seç. Örneğin %50, 1200 × 800
 piksellik bir görseli 600 × 400 piksele indirir. Uvaia PNG, JPG ve WebP
 biçimlerini korur, diğer hareketsiz görselleri PNG olarak kaydeder. Çıktı adına

@@ -3,9 +3,18 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import BinaryIO
+
+
+@dataclass(frozen=True)
+class SavedOutputs:
+    """Bir işlemde kaydedilen dosyalar ve kullanıcıya gösterilecek sonuç."""
+
+    paths: tuple[Path, ...]
+    message: str
 
 
 def save_new_file(destination: Path, write: Callable[[BinaryIO], object]) -> Path:

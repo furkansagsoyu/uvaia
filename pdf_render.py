@@ -11,7 +11,7 @@ import pypdfium2 as pdfium
 from PIL import Image
 
 from image_conversion import FORMATS
-from output_files import save_new_file
+from output_files import SavedOutputs, save_new_file
 from pdf_tools import parse_pages
 
 DPI = 144
@@ -50,7 +50,7 @@ def page_image(document: pdfium.PdfDocument, index: int) -> Iterator[Image.Image
         raise ValueError(f"{index + 1}. sayfanın görüntüsü oluşturulamadı.") from error
 
 
-def render_pdf_pages(source: Path, selection: str, output_format: str) -> Path | str:
+def render_pdf_pages(source: Path, selection: str, output_format: str) -> Path | SavedOutputs:
     if output_format not in ("PNG", "JPG"):
         raise ValueError("PNG veya JPG biçimini seç.")
 
@@ -75,9 +75,12 @@ def render_pdf_pages(source: Path, selection: str, output_format: str) -> Path |
                 if isinstance(error, ValueError):
                     detail = f"{detail} {error}"
                 if saved:
-                    detail = f"{len(saved)} sayfa kaydedildi. {detail}"
+                    message = f"İşlem tamamlanamadı: {len(saved)} sayfa kaydedildi. {detail}"
+                    return SavedOutputs(tuple(saved), message)
                 raise ValueError(detail) from error
 
     if len(saved) == 1:
         return saved[0]
-    return f"{len(saved)} PDF sayfası {output_format} olarak kaydedildi."
+    return SavedOutputs(
+        tuple(saved), f"{len(saved)} PDF sayfası {output_format} olarak kaydedildi."
+    )
