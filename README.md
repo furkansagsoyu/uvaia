@@ -83,3 +83,10 @@ Videoyu ana pencereye bırak veya **Videoyu kes…** ile seç. Başlangıç ve b
 zamanlarını girip **Kesiti kaydet**’e bas. Uvaia görüntüyü ve varsa ilk ses
 parçasını aynı klasöre MP4 olarak kaydeder. Bitiş zamanı videodan uzunsa çıktı
 video sonunda biter.
+
+## QR kodu okuma
+
+QR kodunu içeren görseli ana pencereye bırak ve **QR kodu oku…**’ya bas.
+Bu düğmeyle doğrudan bir görsel de seçebilirsin. Bulunan içerik düz metin
+olarak gösterilir. Metnin tamamını veya seçili bölümünü **Panoya kopyala**
+düğmesiyle kopyalayabilirsin.

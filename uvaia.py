@@ -8,15 +8,17 @@ from functools import partial
 from pathlib import Path
 
 from PIL import Image
-from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtCore import Qt, QThread, Signal, Slot
 from PySide6.QtGui import QCloseEvent, QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
+    QDialogButtonBox,
     QFileDialog,
     QGridLayout,
     QInputDialog,
     QLabel,
+    QPlainTextEdit,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -36,6 +38,7 @@ from drag_wheel import (
 from image_conversion import FORMATS, convert_image, convert_images
 from file_order_dialog import FileOrderDialog
 from pdf_tools import extract_pages, images_to_pdf, merge_pdfs
+from qr_reader import read_qr_codes
 from video_tools import VIDEO_EXTENSIONS, extract_frame, extract_mp3, trim_video
 from video_trim_dialog import VideoTrimDialog
 
@@ -154,6 +157,10 @@ class Window(QWidget):
         self.trim_button = QPushButton("Videoyu kes…")
         self.trim_button.clicked.connect(self.choose_trim)
         layout.addWidget(self.trim_button)
+
+        self.qr_button = QPushButton("QR kodu oku…")
+        self.qr_button.clicked.connect(self.choose_qr)
+        layout.addWidget(self.qr_button)
 
         self.status = QLabel()
         self.status.setObjectName("status")
@@ -367,6 +374,57 @@ class Window(QWidget):
             dialog.deleteLater()
             self.set_drag_monitor_enabled(self.job is None)
 
+    def choose_qr(self) -> None:
+        if self.job is not None:
+            return
+        self.set_drag_monitor_enabled(False)
+        try:
+            source = self.source
+            if source is None or self.wheel.isHidden():
+                filename, _ = QFileDialog.getOpenFileName(self, "QR kodu içeren görseli seç")
+                if not filename:
+                    return
+                source = Path(filename)
+                self.select_image(source)
+            self.start_job(
+                partial(read_qr_codes, source),
+                "QR kodu aranıyor…",
+                on_success=self.show_qr_result,
+            )
+        finally:
+            self.set_drag_monitor_enabled(self.job is None)
+
+    @Slot(str)
+    def show_qr_result(self, payload: str) -> None:
+        self.status.setText("QR kodu okundu.")
+        self.set_drag_monitor_enabled(False)
+        dialog = QDialog(self)
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        dialog.setWindowTitle("QR kodu içeriği")
+        dialog.resize(460, 270)
+        layout = QVBoxLayout(dialog)
+        content = QPlainTextEdit()
+        content.setAccessibleName("QR kodu içeriği")
+        content.setPlainText(payload)
+        content.setReadOnly(True)
+        layout.addWidget(content)
+
+        buttons = QDialogButtonBox()
+        copy = buttons.addButton("Panoya kopyala", QDialogButtonBox.ButtonRole.ActionRole)
+        buttons.addButton("Kapat", QDialogButtonBox.ButtonRole.RejectRole)
+
+        def copy_payload() -> None:
+            selection = content.textCursor().selectedText()
+            text = selection.replace("\u2029", "\n") if selection else payload
+            QApplication.clipboard().setText(text)
+            copy.setText("Kopyalandı")
+
+        copy.clicked.connect(copy_payload)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        dialog.finished.connect(lambda: self.set_drag_monitor_enabled(self.job is None))
+        dialog.open()
+
     def choose_pdfs(self) -> None:
         if self.job is not None:
             return
@@ -453,12 +511,18 @@ class Window(QWidget):
         )
         self.start_job(operation, action)
 
-    def start_job(self, operation: Callable[[], Path | str], status: str) -> None:
+    def start_job(
+        self,
+        operation: Callable[[], Path | str],
+        status: str,
+        *,
+        on_success: Callable[[str], None] | None = None,
+    ) -> None:
         self.set_drag_monitor_enabled(False)
         self.status.setText(status)
         self.set_file_controls_enabled(False)
         self.job = FileJob(operation, self)
-        self.job.succeeded.connect(self.status.setText)
+        self.job.succeeded.connect(on_success or self.status.setText)
         self.job.failed.connect(lambda message: self.status.setText(f"İşlem tamamlanamadı: {message}"))
         self.job.finished.connect(self.job_finished)
         self.job.finished.connect(self.job.deleteLater)
@@ -466,7 +530,7 @@ class Window(QWidget):
 
     def job_finished(self) -> None:
         self.job = None
-        self.set_drag_monitor_enabled(True)
+        self.set_drag_monitor_enabled(QApplication.activeModalWidget() is None)
         self.set_file_controls_enabled(True)
 
     def set_file_controls_enabled(self, enabled: bool) -> None:
@@ -478,6 +542,7 @@ class Window(QWidget):
         self.audio_button.setEnabled(enabled)
         self.frame_button.setEnabled(enabled)
         self.trim_button.setEnabled(enabled)
+        self.qr_button.setEnabled(enabled)
 
     def closeEvent(self, event: QCloseEvent) -> None:
         if self.job is not None:
