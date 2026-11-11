@@ -15,6 +15,13 @@ Nemo'dan tek bir görseli pencereye bırak veya **Görsel seç…** düğmesini 
 kaydedilir. Aynı isimde bir dosya varsa numaralı bir ad kullanılır. JPG çıktısında
 şeffaf alanlar beyaz olur.
 
-İlk prototipte çark, dosya pencereye bırakıldığında açılır.
+## Sürüklerken çarkı açma
+
+Uvaia açıkken Nemo'da bir görseli sol tuşla sürüklemeye başla. **Shift**'e basınca
+işlem çarkı imlecin yakınında açılır. Görseli **PNG**, **JPG** veya **WebP**
+düğmesinin üstüne bırak. Sürüklemeyi iptal edersen çark kapanır.
+
+Bu kısayol X11 oturumunda çalışır. Uvaia'nın penceresine dosya bırakmak ve
+dosya seçiciyi kullanmak da mümkündür.
 
 Sürükle-bırak akışı Nashi'den ilham alır.

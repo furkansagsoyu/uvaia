@@ -18,6 +18,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from Xlib import error as x11_error
+
+from drag_wheel import DragWheel, WHEEL_POSITIONS, WheelMonitor, accept_copy, local_drop_path
 from image_conversion import FORMATS, convert_image
 
 STYLE = """
@@ -67,6 +70,7 @@ class Window(QWidget):
         super().__init__()
         self.source: Path | None = None
         self.job: Conversion | None = None
+        self.monitor: WheelMonitor | None = None
         self.setWindowTitle("Uvaia")
         self.setAcceptDrops(True)
         self.setMinimumWidth(420)
@@ -96,7 +100,7 @@ class Window(QWidget):
         center = QLabel("Dönüştür")
         center.setAlignment(Qt.AlignmentFlag.AlignCenter)
         wheel_layout.addWidget(center, 1, 1)
-        for output_format, position in zip(FORMATS, ((0, 1), (2, 0), (2, 2)), strict=True):
+        for output_format, position in zip(FORMATS, WHEEL_POSITIONS, strict=True):
             button = QPushButton(output_format)
             button.setProperty("format", True)
             button.clicked.connect(lambda checked=False, fmt=output_format: self.convert(fmt))
@@ -108,6 +112,24 @@ class Window(QWidget):
         self.status.setObjectName("status")
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
+
+    def start_drag_monitor(self) -> None:
+        if QApplication.platformName() != "xcb":
+            return
+        wheel = DragWheel(STYLE)
+        try:
+            self.monitor = WheelMonitor(self, wheel)
+        except x11_error.DisplayError:
+            return
+        wheel.file_dropped.connect(self.convert_drop)
+        QApplication.instance().aboutToQuit.connect(self.monitor.shutdown)
+        self.drop_zone.setText("Bir görseli buraya bırak veya sürüklerken Shift'e bas")
+
+    def convert_drop(self, source: Path, output_format: str) -> None:
+        self.select_image(source)
+        self.showNormal()
+        self.raise_()
+        self.convert(output_format)
 
     def choose_image(self) -> None:
         filename, _ = QFileDialog.getOpenFileName(self, "Görsel seç")
@@ -121,21 +143,21 @@ class Window(QWidget):
         self.status.clear()
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
-        urls = event.mimeData().urls()
-        if self.job is None and len(urls) == 1 and urls[0].isLocalFile():
-            event.acceptProposedAction()
+        if self.job is None and local_drop_path(event) is not None:
+            accept_copy(event)
 
     def dropEvent(self, event: QDropEvent) -> None:
-        urls = event.mimeData().urls()
-        if self.job is None and len(urls) == 1 and urls[0].isLocalFile():
-            source = Path(urls[0].toLocalFile())
-            if source.is_file():
-                self.select_image(source)
-                event.acceptProposedAction()
+        source = local_drop_path(event)
+        if self.job is None and source is not None and source.is_file():
+            self.select_image(source)
+            accept_copy(event)
 
     def convert(self, output_format: str) -> None:
         if self.source is None or self.job is not None:
             return
+        if self.monitor is not None:
+            self.monitor.enabled = False
+            self.monitor.wheel.hide()
         self.status.setText("Dönüştürülüyor…")
         self.pick.setEnabled(False)
         self.wheel.setEnabled(False)
@@ -148,6 +170,8 @@ class Window(QWidget):
 
     def conversion_finished(self) -> None:
         self.job = None
+        if self.monitor is not None:
+            self.monitor.enabled = True
         self.pick.setEnabled(True)
         self.wheel.setEnabled(True)
 
@@ -162,6 +186,7 @@ def main() -> int:
     app = QApplication(sys.argv)
     app.setApplicationName("Uvaia")
     window = Window()
+    window.start_drag_monitor()
     if len(sys.argv) > 1:
         path = Path(sys.argv[1]).expanduser().absolute()
         if path.is_file():
