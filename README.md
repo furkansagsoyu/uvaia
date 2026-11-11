@@ -15,6 +15,11 @@ Nemo'dan tek bir görseli pencereye bırak veya **Görsel seç…** düğmesini 
 kaydedilir. Aynı isimde bir dosya varsa numaralı bir ad kullanılır. JPG çıktısında
 şeffaf alanlar beyaz olur.
 
+**Görseli küçült…** ile yeni boyutu yüzde olarak seç. Örneğin %50, 1200 × 800
+piksellik bir görseli 600 × 400 piksele indirir. Uvaia PNG, JPG ve WebP
+biçimlerini korur, diğer hareketsiz görselleri PNG olarak kaydeder. Çıktı adına
+oran eklenir (`foto-50pct.png` gibi).
+
 ## Sürüklerken çarkı açma
 
 Uvaia açıkken Nemo'da bir görseli sol tuşla sürüklemeye başla. **Shift**'e basınca

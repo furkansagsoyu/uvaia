@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
     QGridLayout,
+    QInputDialog,
     QLabel,
     QPushButton,
     QVBoxLayout,
@@ -54,14 +55,24 @@ class Conversion(QThread):
     succeeded = Signal(str)
     failed = Signal(str)
 
-    def __init__(self, source: Path, output_format: str, parent: QWidget) -> None:
+    def __init__(
+        self,
+        source: Path,
+        output_format: str | None,
+        parent: QWidget,
+        *,
+        scale_percent: int | None = None,
+    ) -> None:
         super().__init__(parent)
         self.source = source
         self.output_format = output_format
+        self.scale_percent = scale_percent
 
     def run(self) -> None:
         try:
-            output = convert_image(self.source, self.output_format)
+            output = convert_image(
+                self.source, self.output_format, scale_percent=self.scale_percent
+            )
         except Image.DecompressionBombError:
             self.failed.emit("Görsel güvenli işlem boyutunu aşıyor.")
         except (OSError, ValueError) as error:
@@ -112,6 +123,9 @@ class Window(QWidget):
             button.setProperty("format", True)
             button.clicked.connect(lambda checked=False, fmt=output_format: self.convert(fmt))
             wheel_layout.addWidget(button, *position)
+        resize_button = QPushButton("Görseli küçült…")
+        resize_button.clicked.connect(self.choose_scale)
+        wheel_layout.addWidget(resize_button, 3, 0, 1, 3)
         self.wheel.hide()
         layout.addWidget(self.wheel)
 
@@ -159,18 +173,37 @@ class Window(QWidget):
             self.select_image(source)
             accept_copy(event)
 
-    def convert(self, output_format: str) -> None:
+    def choose_scale(self) -> None:
         if self.source is None or self.job is not None:
             return
         if self.monitor is not None:
             self.monitor.enabled = False
             self.monitor.wheel.hide()
-        self.status.setText("Dönüştürülüyor…")
+        try:
+            percent, accepted = QInputDialog.getInt(
+                self, "Görseli küçült", "Yeni boyut (%)", 50, 1, 99, 1
+            )
+        finally:
+            if self.monitor is not None:
+                self.monitor.enabled = True
+        if accepted:
+            self.convert(None, scale_percent=percent)
+
+    def convert(self, output_format: str | None, *, scale_percent: int | None = None) -> None:
+        if self.source is None or self.job is not None:
+            return
+        if self.monitor is not None:
+            self.monitor.enabled = False
+            self.monitor.wheel.hide()
+        action = "Küçültülüyor…" if scale_percent is not None else "Dönüştürülüyor…"
+        self.status.setText(action)
         self.pick.setEnabled(False)
         self.wheel.setEnabled(False)
-        self.job = Conversion(self.source, output_format, self)
+        self.job = Conversion(
+            self.source, output_format, self, scale_percent=scale_percent
+        )
         self.job.succeeded.connect(lambda name: self.status.setText(f"Kaydedildi: {name}"))
-        self.job.failed.connect(lambda message: self.status.setText(f"Dönüştürülemedi: {message}"))
+        self.job.failed.connect(lambda message: self.status.setText(f"İşlem tamamlanamadı: {message}"))
         self.job.finished.connect(self.conversion_finished)
         self.job.finished.connect(self.job.deleteLater)
         self.job.start()
