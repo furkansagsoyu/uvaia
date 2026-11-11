@@ -95,6 +95,13 @@ bırakmadan da aynı düğmeyle bir PDF seçebilirsin. `1, 3-5` gibi sayfa numar
 veya aralıkları yaz. Uvaia sayfaları girdiğin sırayla, kaynak PDF’nin klasöründeki
 `dosya-sayfalar.pdf` dosyasına kaydeder.
 
+## PDF’yi bölme
+
+**PDF’yi böl…** ile tüm sayfaları veya `1, 3-5` gibi bir seçimi dosya başına
+belirlediğin sayıda grupla. Uvaia bölümleri kaynak klasöre
+`belge-bolum-001.pdf`, `belge-bolum-002.pdf` gibi adlarla yazar. İşlemi iptal
+ettiğinde kaydedilmiş bölümleri açabilirsin.
+
 ## PDF’den metin çıkarma
 
 **PDF’den metin çıkar…** ile tüm belgeyi veya `1, 3-5` gibi bir sayfa

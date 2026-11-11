@@ -12,7 +12,8 @@ from pypdf import PdfReader, PdfWriter
 from pypdf.errors import PdfReadError
 
 from image_conversion import flatten_on_white, read_still_image
-from output_files import save_new_file
+from job_progress import JobCancelled, JobProgress, tracked_items
+from output_files import SavedOutputs, save_new_file
 
 PAGE_RANGE = re.compile(r"([0-9]{1,10})(?:\s*[-–]\s*([0-9]{1,10}))?")
 
@@ -115,3 +116,47 @@ def rotate_pages(source: Path, selection: str, degrees: int) -> Path:
 
             destination = source.with_name(f"{source.stem}-dondurulmus.pdf")
             return save_new_file(destination, writer.write)
+
+
+def split_pdf(
+    source: Path,
+    selection: str,
+    group_size: int,
+    *,
+    progress: JobProgress | None = None,
+) -> SavedOutputs:
+    if not 1 <= group_size <= 9999:
+        raise ValueError("Dosya başına 1–9999 arasında sayfa seç.")
+
+    saved: list[Path] = []
+    with read_pdf(source) as reader:
+        count = len(reader.pages)
+        if count == 0:
+            raise ValueError("PDF’de bölünecek sayfa yok.")
+        pages = parse_pages(selection, count) if selection.strip() else range(count)
+        offsets = range(0, len(pages), group_size)
+
+        try:
+            for offset in tracked_items(offsets, progress):
+                number = offset // group_size + 1
+                destination = source.with_name(f"{source.stem}-bolum-{number:03d}.pdf")
+                try:
+                    with PdfWriter() as writer:
+                        writer.append(reader, pages=list(pages[offset:offset + group_size]))
+                        saved.append(save_new_file(destination, writer.write))
+                except (OSError, PdfReadError, ValueError) as error:
+                    if progress is not None:
+                        progress.check_cancelled()
+                    detail = f"{number}. bölüm kaydedilemedi."
+                    if saved:
+                        message = f"İşlem tamamlanamadı: {len(saved)} bölüm kaydedildi. {detail}"
+                        return SavedOutputs(tuple(saved), message)
+                    raise ValueError(detail) from error
+        except JobCancelled:
+            if not saved:
+                raise
+            return SavedOutputs(
+                tuple(saved), f"İşlem iptal edildi. {len(saved)} bölüm kaydedildi."
+            )
+
+    return SavedOutputs(tuple(saved), f"{len(saved)} PDF bölümü kaydedildi.")

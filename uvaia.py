@@ -52,8 +52,9 @@ from output_files import SavedOutputs
 from pdf_export_dialog import PdfExportDialog
 from pdf_render import DPI, render_pdf_pages
 from pdf_rotate_dialog import PdfRotateDialog
+from pdf_split_dialog import PdfSplitDialog
 from pdf_text import extract_pdf_text
-from pdf_tools import extract_pages, images_to_pdf, merge_pdfs, rotate_pages
+from pdf_tools import extract_pages, images_to_pdf, merge_pdfs, rotate_pages, split_pdf
 from qr_reader import read_pdf_qr_codes, read_qr_codes
 from video_frame_dialog import VideoFrameDialog
 from video_tools import (
@@ -271,6 +272,10 @@ class Window(QWidget):
         self.pages_button = QPushButton("PDF’den sayfa çıkar…")
         self.pages_button.clicked.connect(self.choose_pages)
         layout.addWidget(self.pages_button)
+
+        self.pdf_split_button = QPushButton("PDF’yi böl…")
+        self.pdf_split_button.clicked.connect(self.choose_pdf_split)
+        layout.addWidget(self.pdf_split_button)
 
         self.pdf_rotate_button = QPushButton("PDF sayfalarını döndür…")
         self.pdf_rotate_button.clicked.connect(self.choose_pdf_rotate)
@@ -822,6 +827,28 @@ class Window(QWidget):
         finally:
             self.set_drag_monitor_enabled(self.job is None)
 
+    def choose_pdf_split(self) -> None:
+        if self.job is not None:
+            return
+        self.set_drag_monitor_enabled(False)
+        try:
+            source = self.choose_pdf_source()
+            if source is None:
+                return
+            dialog = PdfSplitDialog(source.name, self)
+            try:
+                if dialog.exec() == QDialog.DialogCode.Accepted:
+                    selection, group_size = dialog.pages.text(), dialog.group_size.value()
+                    self.start_progress_job(
+                        lambda progress: split_pdf(source, selection, group_size, progress=progress),
+                        "PDF bölünüyor…",
+                        unit="bölüm",
+                    )
+            finally:
+                dialog.deleteLater()
+        finally:
+            self.set_drag_monitor_enabled(self.job is None)
+
     def choose_pdf_rotate(self) -> None:
         if self.job is not None:
             return
@@ -1004,6 +1031,7 @@ class Window(QWidget):
         self.wheel.setEnabled(enabled)
         self.pdf_button.setEnabled(enabled)
         self.pages_button.setEnabled(enabled)
+        self.pdf_split_button.setEnabled(enabled)
         self.pdf_rotate_button.setEnabled(enabled)
         self.pdf_render_button.setEnabled(enabled)
         self.pdf_text_button.setEnabled(enabled)
