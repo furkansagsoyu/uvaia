@@ -1,4 +1,4 @@
-"""Görselleri kaynak dosyayı koruyarak dönüştürür ve küçültür."""
+"""Görselleri kaynak dosyayı koruyarak dönüştürür, küçültür ve kırpar."""
 
 from __future__ import annotations
 
@@ -10,10 +10,15 @@ from output_files import save_new_file
 
 FORMATS = {"PNG": ".png", "JPG": ".jpg", "WebP": ".webp"}
 SOURCE_FORMATS = {"PNG": "PNG", "JPEG": "JPG", "WEBP": "WebP"}
+CropBounds = tuple[float, float, float, float]
 
 
 def convert_image(
-    source: Path, output_format: str | None, *, scale_percent: int | None = None
+    source: Path,
+    output_format: str | None,
+    *,
+    scale_percent: int | None = None,
+    crop_bounds: CropBounds | None = None,
 ) -> Path:
     """Tamamlanan çıktıyı boş bir ada kaydeder."""
     if scale_percent is not None and not 1 <= scale_percent <= 99:
@@ -32,6 +37,17 @@ def convert_image(
         height = max(1, round(image.height * scale_percent / 100))
         image = image.resize((width, height), Image.Resampling.LANCZOS)
         stem = f"{stem}-{scale_percent}pct"
+
+    if crop_bounds is not None:
+        left, top, right, bottom = crop_bounds
+        if not (0 <= left < right <= 1 and 0 <= top < bottom <= 1):
+            raise ValueError("Geçerli bir kırpma alanı seç.")
+        x = min(image.width - 1, round(left * image.width))
+        y = min(image.height - 1, round(top * image.height))
+        right_edge = max(x + 1, round(right * image.width))
+        bottom_edge = max(y + 1, round(bottom * image.height))
+        image = image.crop((x, y, right_edge, bottom_edge))
+        stem = f"{stem}-kirpilmis"
 
     if output_format == "JPG":
         background = Image.new("RGB", image.size, "white")

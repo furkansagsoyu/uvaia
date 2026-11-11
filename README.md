@@ -20,6 +20,10 @@ piksellik bir görseli 600 × 400 piksele indirir. Uvaia PNG, JPG ve WebP
 biçimlerini korur, diğer hareketsiz görselleri PNG olarak kaydeder. Çıktı adına
 oran eklenir (`foto-50pct.png` gibi).
 
+**Görseli kırp…** ile önizlemeyi aç ve fareyle bir alan seç. **Kırpılmış
+kopyayı kaydet** seçimi kaynak klasöre `foto-kirpilmis.png` gibi bir dosya
+olarak yazar.
+
 ## Sürüklerken çarkı açma
 
 Uvaia açıkken Nemo'da bir görseli sol tuşla sürüklemeye başla. **Shift**'e basınca

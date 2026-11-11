@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 
 from Xlib import error as x11_error
 
+from crop_dialog import CropDialog, read_preview
 from drag_wheel import (
     WHEEL_POSITIONS,
     DragWheel,
@@ -121,6 +122,9 @@ class Window(QWidget):
         resize_button = QPushButton("Görseli küçült…")
         resize_button.clicked.connect(self.choose_scale)
         wheel_layout.addWidget(resize_button, 3, 0, 1, 3)
+        crop_button = QPushButton("Görseli kırp…")
+        crop_button.clicked.connect(self.choose_crop)
+        wheel_layout.addWidget(crop_button, 4, 0, 1, 3)
         self.wheel.hide()
         layout.addWidget(self.wheel)
 
@@ -241,6 +245,31 @@ class Window(QWidget):
             self.set_drag_monitor_enabled(True)
         if accepted:
             self.convert(None, scale_percent=percent)
+
+    def choose_crop(self) -> None:
+        source = self.source
+        if source is None or self.job is not None:
+            return
+        try:
+            preview = read_preview(source)
+        except Image.DecompressionBombError:
+            self.status.setText("Görsel güvenli işlem boyutunu aşıyor.")
+            return
+        except (OSError, ValueError) as error:
+            self.status.setText(f"Önizleme açılamadı: {error}")
+            return
+
+        self.set_drag_monitor_enabled(False)
+        dialog = CropDialog(preview, self)
+        try:
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                bounds = dialog.preview.bounds()
+                if bounds is not None:
+                    operation = partial(convert_image, source, None, crop_bounds=bounds)
+                    self.start_job(operation, "Görsel kırpılıyor…")
+        finally:
+            dialog.deleteLater()
+            self.set_drag_monitor_enabled(self.job is None)
 
     def choose_pdfs(self) -> None:
         if self.job is not None:
