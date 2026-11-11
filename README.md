@@ -76,3 +76,10 @@ Videoyu ana pencereye bırak ya da **Videodan kare al…** ile seç.
 Kare zamanını saniye veya saat biçiminde gir. Örneğin `12,5` ve
 `00:12.500` aynı zamanı belirtir. Uvaia video karesini kaynak klasöre
 `video-kare-12.500s.png` adıyla kaydeder.
+
+## Videoyu kesme
+
+Videoyu ana pencereye bırak veya **Videoyu kes…** ile seç. Başlangıç ve bitiş
+zamanlarını girip **Kesiti kaydet**’e bas. Uvaia görüntüyü ve varsa ilk ses
+parçasını aynı klasöre MP4 olarak kaydeder. Bitiş zamanı videodan uzunsa çıktı
+video sonunda biter.

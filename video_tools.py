@@ -1,4 +1,4 @@
-"""Videodan yerel olarak ses ve görüntü çıkarır."""
+"""Video kesitlerini, kareleri ve sesi yerel olarak dışa aktarır."""
 
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ def run_ffmpeg(
     if seek is not None:
         command.extend(("-ss", seek))
     command.extend(("-i", str(source.absolute()), *options, str(output)))
-    return subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    return subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
 def extract_mp3(source: Path) -> Path:
@@ -52,8 +52,8 @@ def extract_mp3(source: Path) -> Path:
     return save_new_file(source.with_suffix(".mp3"), encode)
 
 
-def parse_timestamp(value: str) -> str:
-    """Kullanıcının girdiği zamanı FFmpeg için saniye ve milisaniyeye çevirir."""
+def timestamp_milliseconds(value: str) -> int:
+    """Kullanıcının girdiği zamanı milisaniyeye çevirir."""
     match = TIMESTAMP.fullmatch(value.strip())
     if match is None:
         raise ValueError("Zamanı saniye veya 00:12.500 biçiminde yaz.")
@@ -64,12 +64,25 @@ def parse_timestamp(value: str) -> str:
     seconds = 0
     for part in parts:
         seconds = seconds * 60 + part
-    fraction = (match[2] or "").ljust(3, "0")
-    return f"{seconds}.{fraction}"
+    fraction = int((match[2] or "").ljust(3, "0"))
+    return seconds * 1000 + fraction
+
+
+def format_timestamp(milliseconds: int) -> str:
+    seconds, fraction = divmod(milliseconds, 1000)
+    return f"{seconds}.{fraction:03d}"
+
+
+def parse_clip_range(start: str, end: str) -> tuple[int, int]:
+    begin = timestamp_milliseconds(start)
+    finish = timestamp_milliseconds(end)
+    if finish <= begin:
+        raise ValueError("Bitiş zamanı başlangıçtan sonra olmalı.")
+    return begin, finish
 
 
 def extract_frame(source: Path, timestamp: str) -> Path:
-    seek = parse_timestamp(timestamp)
+    seek = format_timestamp(timestamp_milliseconds(timestamp))
 
     def encode(stream: BinaryIO) -> None:
         output = Path(stream.name)
@@ -87,4 +100,35 @@ def extract_frame(source: Path, timestamp: str) -> Path:
             raise ValueError("Bu zamanda video karesi yok. Daha erken bir zaman seç.")
 
     destination = source.with_name(f"{source.stem}-kare-{seek}s.png")
+    return save_new_file(destination, encode)
+
+
+def trim_video(source: Path, start: int, end: int) -> Path:
+    if start < 0 or end <= start:
+        raise ValueError("Geçerli bir başlangıç ve bitiş zamanı seç.")
+
+    seek = format_timestamp(start)
+    duration = format_timestamp(end - start)
+    options = (
+        "-t", duration,
+        "-map", "0:V:0", "-map", "0:a:0?",
+        "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2",
+        "-c:v", "libx264", "-preset", "fast", "-crf", "20", "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-b:a", "192k",
+        "-map_chapters", "-1", "-movflags", "+faststart",
+        "-progress", "pipe:1", "-f", "mp4",
+    )
+
+    def encode(stream: BinaryIO) -> None:
+        output = Path(stream.name)
+        process = run_ffmpeg(source, output, options, seek=seek)
+        if process.returncode:
+            if b"matches no streams" in process.stderr:
+                raise ValueError("Dosyada video akışı bulunamadı.")
+            raise ValueError(f"Video okunamadı veya MP4 yazılamadı: {source.name}")
+        if not re.search(rb"(?m)^frame=[ 	]*[1-9][0-9]*[ 	]*$", process.stdout):
+            raise ValueError("Bu aralıkta video karesi yok. Daha erken bir başlangıç seç.")
+
+    finish = format_timestamp(end)
+    destination = source.with_name(f"{source.stem}-kesit-{seek}s-{finish}s.mp4")
     return save_new_file(destination, encode)

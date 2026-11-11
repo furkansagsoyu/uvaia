@@ -36,7 +36,8 @@ from drag_wheel import (
 from image_conversion import FORMATS, convert_image, convert_images
 from file_order_dialog import FileOrderDialog
 from pdf_tools import extract_pages, images_to_pdf, merge_pdfs
-from video_tools import VIDEO_EXTENSIONS, extract_frame, extract_mp3
+from video_tools import VIDEO_EXTENSIONS, extract_frame, extract_mp3, trim_video
+from video_trim_dialog import VideoTrimDialog
 
 STYLE = """
 QWidget { background: #172321; color: #eff6ed; font-size: 15px; }
@@ -149,6 +150,10 @@ class Window(QWidget):
         self.frame_button = QPushButton("Videodan kare al…")
         self.frame_button.clicked.connect(self.choose_frame)
         layout.addWidget(self.frame_button)
+
+        self.trim_button = QPushButton("Videoyu kes…")
+        self.trim_button.clicked.connect(self.choose_trim)
+        layout.addWidget(self.trim_button)
 
         self.status = QLabel()
         self.status.setObjectName("status")
@@ -283,6 +288,24 @@ class Window(QWidget):
             )
             if accepted:
                 self.start_job(partial(extract_frame, source, timestamp), "Video karesi hazırlanıyor…")
+        finally:
+            self.set_drag_monitor_enabled(self.job is None)
+
+    def choose_trim(self) -> None:
+        if self.job is not None:
+            return
+        self.set_drag_monitor_enabled(False)
+        try:
+            source = self.choose_video_source("Kesilecek videoyu seç")
+            if source is None:
+                return
+            dialog = VideoTrimDialog(source.name, self)
+            try:
+                if dialog.exec() == QDialog.DialogCode.Accepted and dialog.interval:
+                    operation = partial(trim_video, source, *dialog.interval)
+                    self.start_job(operation, "Video kesiti hazırlanıyor…")
+            finally:
+                dialog.deleteLater()
         finally:
             self.set_drag_monitor_enabled(self.job is None)
 
@@ -454,6 +477,7 @@ class Window(QWidget):
         self.images_pdf_button.setEnabled(enabled)
         self.audio_button.setEnabled(enabled)
         self.frame_button.setEnabled(enabled)
+        self.trim_button.setEnabled(enabled)
 
     def closeEvent(self, event: QCloseEvent) -> None:
         if self.job is not None:
