@@ -42,6 +42,10 @@ piksel boyutlarını korur. Çıktı kaynak dosyadan küçükse
 dikey yansıt ve sonucu önizle. **Kopyayı kaydet** değişiklikleri
 `foto-duzenlenmis.png` gibi yeni bir dosyaya yazar.
 
+**Görsel ayarları…** ile parlaklık, kontrast ve doygunluğu değiştir. Önizleme
+anında güncellenir. **Kopyayı kaydet** ayarlanmış görseli
+`foto-ayarli.png` gibi ayrı bir dosyaya yazar.
+
 ## Cinnamon ve Nemo menülerine ekleme
 
 ```bash

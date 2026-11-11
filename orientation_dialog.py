@@ -4,46 +4,18 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QImage, QPixmap, QResizeEvent, QTransform
+from PySide6.QtGui import QImage, QTransform
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QHBoxLayout,
-    QLabel,
     QPushButton,
-    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
 
 from image_conversion import Orientation
-
-
-class OrientationPreview(QLabel):
-    def __init__(self, image: QImage, parent: QWidget) -> None:
-        super().__init__(parent)
-        self.image = image
-        self.setMinimumSize(320, 220)
-        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
-        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.setAccessibleName("Görsel önizlemesi")
-
-    def show_image(self, image: QImage) -> None:
-        self.image = image
-        self.refresh()
-
-    def refresh(self) -> None:
-        image = self.image.scaled(
-            self.contentsRect().size(),
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation,
-        )
-        self.setPixmap(QPixmap.fromImage(image))
-
-    def resizeEvent(self, event: QResizeEvent) -> None:
-        super().resizeEvent(event)
-        self.refresh()
+from image_preview import ImagePreview
 
 
 class OrientationDialog(QDialog):
@@ -55,7 +27,7 @@ class OrientationDialog(QDialog):
         self.resize(640, 450)
 
         layout = QVBoxLayout(self)
-        self.preview = OrientationPreview(image, self)
+        self.preview = ImagePreview(image, self)
         layout.addWidget(self.preview, 1)
         actions = QHBoxLayout()
         for label, change in (

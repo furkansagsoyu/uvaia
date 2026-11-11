@@ -2,29 +2,13 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
-from PIL import Image, ImageOps
 from PySide6.QtCore import QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QColor, QImage, QMouseEvent, QPaintEvent, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QDialog, QDialogButtonBox, QLabel, QVBoxLayout, QWidget
 
 from image_conversion import CropBounds
 
-PREVIEW_LIMIT = 900
 SELECTION_COLOR = QColor("#eac174")
-
-
-def read_preview(source: Path) -> QImage:
-    with Image.open(source) as original:
-        if getattr(original, "is_animated", False):
-            raise ValueError("Hareketli görseller henüz desteklenmiyor.")
-        original.thumbnail((PREVIEW_LIMIT, PREVIEW_LIMIT), Image.Resampling.LANCZOS)
-        preview = ImageOps.exif_transpose(original).convert("RGBA")
-        pixels = preview.tobytes()
-        return QImage(
-            pixels, preview.width, preview.height, preview.width * 4, QImage.Format.Format_RGBA8888
-        ).copy()
 
 
 class CropPreview(QWidget):

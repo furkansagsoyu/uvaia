@@ -10,7 +10,7 @@ from pathlib import Path
 
 from PIL import Image
 from PySide6.QtCore import QPoint, Qt, QThread, QTimer, QUrl, Signal, Slot
-from PySide6.QtGui import QCloseEvent, QDesktopServices, QDragEnterEvent, QDropEvent, QImage
+from PySide6.QtGui import QCloseEvent, QDesktopServices, QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -31,7 +31,7 @@ from PySide6.QtWidgets import (
 from Xlib import error as x11_error
 
 from compression_dialog import CompressionDialog
-from crop_dialog import CropDialog, read_preview
+from crop_dialog import CropDialog
 from drag_wheel import (
     WHEEL_POSITIONS,
     DragWheel,
@@ -41,7 +41,9 @@ from drag_wheel import (
     offers_file_copy,
 )
 from file_order_dialog import FileOrderDialog
-from image_conversion import FORMATS, compress_image, convert_image, convert_images
+from image_adjust_dialog import ImageAdjustDialog
+from image_conversion import FORMATS, adjust_image, compress_image, convert_image, convert_images
+from image_preview import read_preview_image, to_qimage
 from orientation_dialog import OrientationDialog
 from output_files import SavedOutputs
 from pdf_render import render_pdf_pages
@@ -211,6 +213,9 @@ class Window(QWidget):
         self.orientation_button = QPushButton("Döndür ve yansıt…")
         self.orientation_button.clicked.connect(self.choose_orientation)
         editing.addWidget(self.orientation_button, 1, 1)
+        self.adjust_button = QPushButton("Görsel ayarları…")
+        self.adjust_button.clicked.connect(self.choose_image_adjustments)
+        editing.addWidget(self.adjust_button, 2, 0, 1, 2)
         wheel_layout.addLayout(editing)
         layout.addWidget(self.wheel)
         self.wheel.hide()
@@ -330,6 +335,7 @@ class Window(QWidget):
         self.crop_button.hide()
         self.compress_button.hide()
         self.orientation_button.hide()
+        self.adjust_button.hide()
         self.audio_button.setText("Videodan MP3 çıkar…")
         self.clear_result()
         return True
@@ -350,6 +356,7 @@ class Window(QWidget):
         self.crop_button.show()
         self.compress_button.show()
         self.orientation_button.show()
+        self.adjust_button.show()
         self.tools.setCurrentWidget(self.image_tab)
         self.drop_zone.setText(source.name)
         self.wheel.show()
@@ -493,9 +500,9 @@ class Window(QWidget):
         if accepted:
             self.convert(None, scale_percent=percent)
 
-    def image_preview(self, source: Path) -> QImage | None:
+    def image_preview(self, source: Path) -> Image.Image | None:
         try:
-            return read_preview(source)
+            return read_preview_image(source)
         except Image.DecompressionBombError:
             self.status.setText("Görsel güvenli işlem boyutunu aşıyor.")
         except (OSError, ValueError) as error:
@@ -511,7 +518,7 @@ class Window(QWidget):
             return
 
         self.set_drag_monitor_enabled(False)
-        dialog = CropDialog(preview, self)
+        dialog = CropDialog(to_qimage(preview), self)
         try:
             if dialog.exec() == QDialog.DialogCode.Accepted:
                 bounds = dialog.preview.bounds()
@@ -531,11 +538,29 @@ class Window(QWidget):
             return
 
         self.set_drag_monitor_enabled(False)
-        dialog = OrientationDialog(preview, self)
+        dialog = OrientationDialog(to_qimage(preview), self)
         try:
             if dialog.exec() == QDialog.DialogCode.Accepted:
                 operation = partial(convert_image, source, None, orientation=dialog.orientation)
                 self.start_job(operation, "Düzenlenen görsel kaydediliyor…")
+        finally:
+            dialog.deleteLater()
+            self.set_drag_monitor_enabled(self.job is None)
+
+    def choose_image_adjustments(self) -> None:
+        source = self.source
+        if source is None or self.job is not None:
+            return
+        preview = self.image_preview(source)
+        if preview is None:
+            return
+
+        self.set_drag_monitor_enabled(False)
+        dialog = ImageAdjustDialog(preview, self)
+        try:
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                operation = partial(adjust_image, source, dialog.settings())
+                self.start_job(operation, "Ayarlanan görsel kaydediliyor…")
         finally:
             dialog.deleteLater()
             self.set_drag_monitor_enabled(self.job is None)

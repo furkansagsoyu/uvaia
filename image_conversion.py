@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO
 
-from PIL import Image, ImageOps
+from PIL import Image, ImageEnhance, ImageOps
 
 from output_files import SavedOutputs, save_new_file
 
@@ -32,6 +32,30 @@ class Orientation:
 
     def flip_vertical(self) -> Orientation:
         return Orientation((self.turns + 2) % 4, not self.mirrored)
+
+
+@dataclass(frozen=True)
+class ImageAdjustments:
+    brightness: int = 100
+    contrast: int = 100
+    saturation: int = 100
+
+    def __post_init__(self) -> None:
+        if not all(0 <= value <= 200 for value in (self.brightness, self.contrast, self.saturation)):
+            raise ValueError("Görsel ayarları 0–200 arasında olmalı.")
+
+    def apply(self, image: Image.Image) -> Image.Image:
+        alpha = image.getchannel("A")
+        adjusted = image.convert("RGB")
+        for value, enhancer in (
+            (self.brightness, ImageEnhance.Brightness),
+            (self.contrast, ImageEnhance.Contrast),
+            (self.saturation, ImageEnhance.Color),
+        ):
+            if value != 100:
+                adjusted = enhancer(adjusted).enhance(value / 100)
+        adjusted.putalpha(alpha)
+        return adjusted
 
 
 def read_still_image(source: Path) -> tuple[Image.Image, str | None]:
@@ -89,12 +113,22 @@ def convert_image(
             image = ImageOps.mirror(image)
         stem = f"{stem}-duzenlenmis"
 
+    destination = source.with_name(f"{stem}{extension}")
+    return save_image_copy(image, destination, output_format)
+
+
+def save_image_copy(image: Image.Image, destination: Path, output_format: str) -> Path:
     if output_format == "JPG":
         image = flatten_on_white(image)
-
-    destination = source.with_name(f"{stem}{extension}")
     pillow_format = "JPEG" if output_format == "JPG" else output_format
     return save_new_file(destination, lambda stream: image.save(stream, format=pillow_format))
+
+
+def adjust_image(source: Path, settings: ImageAdjustments) -> Path:
+    image, source_format = read_still_image(source)
+    output_format = SOURCE_FORMATS.get(source_format or "", "PNG")
+    destination = source.with_name(f"{source.stem}-ayarli{FORMATS[output_format]}")
+    return save_image_copy(settings.apply(image), destination, output_format)
 
 
 def convert_images(sources: tuple[Path, ...], output_format: str) -> SavedOutputs:
