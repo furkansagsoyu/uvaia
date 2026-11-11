@@ -93,6 +93,13 @@ bırakmadan da aynı düğmeyle bir PDF seçebilirsin. `1, 3-5` gibi sayfa numar
 veya aralıkları yaz. Uvaia sayfaları girdiğin sırayla, kaynak PDF’nin klasöründeki
 `dosya-sayfalar.pdf` dosyasına kaydeder.
 
+## PDF’den metin çıkarma
+
+**PDF’den metin çıkar…** ile tüm belgeyi veya `1, 3-5` gibi bir sayfa
+seçimini işle. Uvaia metin içeren sayfaları, sayfa numaralarıyla birlikte
+`belge-metin.txt` dosyasına UTF-8 olarak kaydeder. Bu araç PDF’nin seçilebilir
+metin katmanını kullanır. Görüntü olarak taranmış sayfalarda OCR yapmaz.
+
 ## PDF sayfalarını döndürme
 
 **PDF sayfalarını döndür…** ile sayfaları 90° sağa, 90° sola veya 180°
