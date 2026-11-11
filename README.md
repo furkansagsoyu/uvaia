@@ -1,6 +1,6 @@
 # Uvaia
 
-Linux Mint Cinnamon/X11 için yerel görsel ve PDF araçları.
+Linux Mint Cinnamon/X11 için yerel görsel, PDF ve video araçları.
 
 ## Çalıştırma
 
@@ -39,3 +39,12 @@ Ana pencerede **PDF birleştir…** düğmesine bas. **PDF ekle…** ile en az i
 dosya seç, gerekirse **Yukarı** ve **Aşağı** ile sırala, ardından **Birleştir**’e
 bas. Sonuç, listedeki ilk PDF’nin klasörüne `dosya-birlesik.pdf` adıyla yazılır.
 Şifreli PDF’ler bu sürümde desteklenmez.
+
+## Videodan MP3 çıkarma
+
+MP4, MKV, MOV, WebM veya AVI dosyasını ana pencereye bırak ve **MP3 olarak
+kaydet**’e bas. **Videodan MP3 çıkar…** düğmesiyle de video seçebilirsin.
+İlk ses parçası videonun klasörüne MP3 olarak yazılır. Ses parçası olmayan
+videolar için uygulama hata gösterir.
+
+FFmpeg, Linux Mint’te `imageio-ffmpeg` bağımlılığıyla kurulur.

@@ -35,6 +35,7 @@ from drag_wheel import (
 from image_conversion import FORMATS, convert_image
 from pdf_dialog import PdfMergeDialog
 from pdf_merge import merge_pdfs
+from video_audio import VIDEO_EXTENSIONS, extract_mp3
 
 STYLE = """
 QWidget { background: #172321; color: #eff6ed; font-size: 15px; }
@@ -96,7 +97,7 @@ class Window(QWidget):
         title.setObjectName("title")
         layout.addWidget(title)
 
-        self.drop_zone = QLabel("Bir görseli buraya bırak")
+        self.drop_zone = QLabel("Bir görseli veya videoyu buraya bırak")
         self.drop_zone.setObjectName("dropZone")
         self.drop_zone.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.drop_zone.setWordWrap(True)
@@ -127,6 +128,10 @@ class Window(QWidget):
         self.pdf_button.clicked.connect(self.choose_pdfs)
         layout.addWidget(self.pdf_button)
 
+        self.audio_button = QPushButton("Videodan MP3 çıkar…")
+        self.audio_button.clicked.connect(self.choose_video)
+        layout.addWidget(self.audio_button)
+
         self.status = QLabel()
         self.status.setObjectName("status")
         self.status.setWordWrap(True)
@@ -142,7 +147,7 @@ class Window(QWidget):
             return
         wheel.file_dropped.connect(self.convert_drop)
         QApplication.instance().aboutToQuit.connect(self.monitor.shutdown)
-        self.drop_zone.setText("Bir görseli buraya bırak veya sürüklerken Shift'e bas")
+        self.drop_zone.setText("Görsel veya video bırak. Görsel çarkı için Shift’e bas.")
 
     def convert_drop(self, source: Path, output_format: str) -> None:
         self.select_image(source)
@@ -153,13 +158,46 @@ class Window(QWidget):
     def choose_image(self) -> None:
         filename, _ = QFileDialog.getOpenFileName(self, "Görsel seç")
         if filename:
-            self.select_image(Path(filename))
+            self.select_file(Path(filename))
+
+    def select_file(self, source: Path) -> None:
+        if source.suffix.lower() in VIDEO_EXTENSIONS:
+            self.select_video(source)
+        else:
+            self.select_image(source)
 
     def select_image(self, source: Path) -> None:
         self.source = source
         self.drop_zone.setText(source.name)
         self.wheel.show()
+        self.audio_button.setText("Videodan MP3 çıkar…")
         self.status.clear()
+
+    def select_video(self, source: Path) -> None:
+        self.source = source
+        self.drop_zone.setText(source.name)
+        self.wheel.hide()
+        self.audio_button.setText("MP3 olarak kaydet")
+        self.status.clear()
+
+    def choose_video(self) -> None:
+        if self.job is not None:
+            return
+        source = self.source
+        if source is None or source.suffix.lower() not in VIDEO_EXTENSIONS:
+            extensions = " ".join(f"*{ext} *{ext.upper()}" for ext in VIDEO_EXTENSIONS)
+            self.set_drag_monitor_enabled(False)
+            try:
+                filename, _ = QFileDialog.getOpenFileName(
+                    self, "Sesini çıkaracağın videoyu seç", filter=f"Video ({extensions})"
+                )
+            finally:
+                self.set_drag_monitor_enabled(True)
+            if not filename:
+                return
+            source = Path(filename)
+            self.select_video(source)
+        self.start_job(partial(extract_mp3, source), "MP3 hazırlanıyor…")
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
         if self.job is None and offers_file_copy(event):
@@ -168,7 +206,7 @@ class Window(QWidget):
     def dropEvent(self, event: QDropEvent) -> None:
         source = local_drop_path(event)
         if self.job is None and source is not None and source.is_file():
-            self.select_image(source)
+            self.select_file(source)
             accept_copy(event)
 
     def set_drag_monitor_enabled(self, enabled: bool) -> None:
@@ -231,6 +269,7 @@ class Window(QWidget):
         self.pick.setEnabled(enabled)
         self.wheel.setEnabled(enabled)
         self.pdf_button.setEnabled(enabled)
+        self.audio_button.setEnabled(enabled)
 
     def closeEvent(self, event: QCloseEvent) -> None:
         if self.job is not None:
@@ -247,7 +286,7 @@ def main() -> int:
     if len(sys.argv) > 1:
         path = Path(sys.argv[1]).expanduser().absolute()
         if path.is_file():
-            window.select_image(path)
+            window.select_file(path)
     window.show()
     return app.exec()
 
