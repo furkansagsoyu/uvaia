@@ -1,4 +1,4 @@
-"""Video kesitlerini, kareleri, sesi ve sessiz kopyaları dışa aktarır."""
+"""Yerel video dönüştürme, kesme ve dışa aktarma araçları."""
 
 from __future__ import annotations
 
@@ -13,6 +13,16 @@ from output_files import save_new_file
 
 VIDEO_CONTAINERS = {".mp4": "mp4", ".mkv": "matroska", ".mov": "mov", ".webm": "webm", ".avi": "avi"}
 VIDEO_EXTENSIONS = tuple(VIDEO_CONTAINERS)
+VIDEO_EXPORT_OPTIONS = {
+    "MP4": (
+        "-c:v", "libx264", "-preset", "fast", "-crf", "20",
+        "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", "-f", "mp4",
+    ),
+    "WebM": (
+        "-c:v", "libvpx-vp9", "-deadline", "good", "-cpu-used", "4", "-crf", "32", "-b:v", "0",
+        "-c:a", "libopus", "-b:a", "128k", "-f", "webm",
+    ),
+}
 TIMESTAMP = re.compile(r"([0-9]{1,7}(?::[0-9]{1,2}){0,2})(?:[.,]([0-9]{1,3}))?")
 
 
@@ -130,35 +140,53 @@ def extract_frame(source: Path, timestamp: str) -> Path:
     return save_new_file(destination, encode)
 
 
+def save_encoded_video(
+    source: Path,
+    destination: Path,
+    output_format: str,
+    *,
+    seek: str | None = None,
+    duration: str | None = None,
+) -> Path:
+    limit = ("-t", duration) if duration is not None else ()
+    options = (
+        *limit,
+        "-map", "0:V:0", "-map", "0:a:0?",
+        "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2", "-pix_fmt", "yuv420p",
+        "-map_chapters", "-1", "-progress", "pipe:1",
+        *VIDEO_EXPORT_OPTIONS[output_format],
+    )
+
+    def encode(stream: BinaryIO) -> None:
+        process = run_ffmpeg(source, Path(stream.name), options, seek=seek)
+        if process.returncode:
+            if b"matches no streams" in process.stderr:
+                raise ValueError("Dosyada video akışı bulunamadı.")
+            raise ValueError(f"Video okunamadı veya {output_format} yazılamadı: {source.name}")
+        if not re.search(rb"(?m)^frame=[ \t]*[1-9][0-9]*[ \t]*$", process.stdout):
+            if duration is not None:
+                raise ValueError("Bu aralıkta video karesi yok. Daha erken bir başlangıç seç.")
+            raise ValueError("Dosyada kaydedilebilecek video karesi yok.")
+
+    return save_new_file(destination, encode)
+
+
 def trim_video(source: Path, start: int, end: int) -> Path:
     if start < 0 or end <= start:
         raise ValueError("Geçerli bir başlangıç ve bitiş zamanı seç.")
 
     seek = format_timestamp(start)
-    duration = format_timestamp(end - start)
-    options = (
-        "-t", duration,
-        "-map", "0:V:0", "-map", "0:a:0?",
-        "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2",
-        "-c:v", "libx264", "-preset", "fast", "-crf", "20", "-pix_fmt", "yuv420p",
-        "-c:a", "aac", "-b:a", "192k",
-        "-map_chapters", "-1", "-movflags", "+faststart",
-        "-progress", "pipe:1", "-f", "mp4",
-    )
-
-    def encode(stream: BinaryIO) -> None:
-        output = Path(stream.name)
-        process = run_ffmpeg(source, output, options, seek=seek)
-        if process.returncode:
-            if b"matches no streams" in process.stderr:
-                raise ValueError("Dosyada video akışı bulunamadı.")
-            raise ValueError(f"Video okunamadı veya MP4 yazılamadı: {source.name}")
-        if not re.search(rb"(?m)^frame=[ 	]*[1-9][0-9]*[ 	]*$", process.stdout):
-            raise ValueError("Bu aralıkta video karesi yok. Daha erken bir başlangıç seç.")
-
     finish = format_timestamp(end)
+    duration = format_timestamp(end - start)
     destination = source.with_name(f"{source.stem}-kesit-{seek}s-{finish}s.mp4")
-    return save_new_file(destination, encode)
+    return save_encoded_video(source, destination, "MP4", seek=seek, duration=duration)
+
+
+def convert_video(source: Path, output_format: str) -> Path:
+    if output_format not in VIDEO_EXPORT_OPTIONS:
+        raise ValueError("Video biçimi olarak MP4 veya WebM seç.")
+    destination = source.with_suffix(f".{output_format.lower()}")
+    return save_encoded_video(source, destination, output_format)
 
 
 def mute_video(source: Path) -> Path:

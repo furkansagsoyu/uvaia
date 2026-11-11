@@ -50,7 +50,15 @@ from pdf_rotate_dialog import PdfRotateDialog
 from pdf_tools import extract_pages, images_to_pdf, merge_pdfs, rotate_pages
 from qr_reader import read_pdf_qr_codes, read_qr_codes
 from video_frame_dialog import VideoFrameDialog
-from video_tools import VIDEO_EXTENSIONS, extract_frame, extract_mp3, mute_video, trim_video
+from video_tools import (
+    VIDEO_EXPORT_OPTIONS,
+    VIDEO_EXTENSIONS,
+    convert_video,
+    extract_frame,
+    extract_mp3,
+    mute_video,
+    trim_video,
+)
 from video_trim_dialog import VideoTrimDialog
 
 STYLE = """
@@ -241,6 +249,10 @@ class Window(QWidget):
 
     def build_video_tools(self) -> None:
         layout = QVBoxLayout(self.video_tab)
+        self.video_convert_button = QPushButton("Videoyu dönüştür…")
+        self.video_convert_button.clicked.connect(self.choose_video_conversion)
+        layout.addWidget(self.video_convert_button)
+
         self.audio_button = QPushButton("Videodan MP3 çıkar…")
         self.audio_button.clicked.connect(self.choose_video)
         layout.addWidget(self.audio_button)
@@ -375,6 +387,25 @@ class Window(QWidget):
         source = Path(filename)
         self.select_video(source)
         return source
+
+    def choose_video_conversion(self) -> None:
+        if self.job is not None:
+            return
+        self.set_drag_monitor_enabled(False)
+        try:
+            source = self.choose_video_source("Dönüştürülecek videoyu seç")
+            if source is None:
+                return
+            formats = list(VIDEO_EXPORT_OPTIONS)
+            default = formats.index("WebM" if source.suffix.lower() == ".mp4" else "MP4")
+            output_format, accepted = QInputDialog.getItem(
+                self, "Videoyu dönüştür", "Çıktı biçimi", formats, default, False
+            )
+            if accepted:
+                operation = partial(convert_video, source, output_format)
+                self.start_job(operation, "Video dönüştürülüyor…")
+        finally:
+            self.set_drag_monitor_enabled(self.job is None)
 
     def choose_video(self) -> None:
         self.run_video_action("Sesini çıkaracağın videoyu seç", extract_mp3, "MP3 hazırlanıyor…")
@@ -808,6 +839,7 @@ class Window(QWidget):
         self.pdf_render_button.setEnabled(enabled)
         self.pdf_qr_button.setEnabled(enabled)
         self.images_pdf_button.setEnabled(enabled)
+        self.video_convert_button.setEnabled(enabled)
         self.audio_button.setEnabled(enabled)
         self.mute_button.setEnabled(enabled)
         self.frame_button.setEnabled(enabled)

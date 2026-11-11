@@ -101,6 +101,11 @@ PDF sekmesinde **PDF’yi görsele dönüştür…** seçeneğini aç. **Sayfala
 tüm belge için boş bırak veya `1, 3-5` gibi bir seçim yaz. Uvaia her sayfayı
 144 DPI ile kaynak klasöre `belge-sayfa-3.png` gibi ayrı bir dosya olarak yazar.
 
+## Videoyu MP4 veya WebM’ye dönüştürme
+
+Video sekmesinde **Videoyu dönüştür…** ile MP4 veya WebM seç. Uvaia ilk video
+akışını ve varsa ilk ses parçasını seçtiğin biçimde kaynak klasöre kaydeder.
+
 ## Videodan MP3 çıkarma
 
 MP4, MKV, MOV, WebM veya AVI dosyasını ana pencereye bırak ve **MP3 olarak
