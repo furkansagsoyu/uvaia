@@ -60,6 +60,7 @@ from video_frame_dialog import VideoFrameDialog
 from video_tools import (
     VIDEO_EXPORT_OPTIONS,
     VIDEO_EXTENSIONS,
+    change_video_speed,
     convert_video,
     extract_frame,
     extract_mp3,
@@ -319,6 +320,10 @@ class Window(QWidget):
         self.trim_button = QPushButton("Videoyu kes…")
         self.trim_button.clicked.connect(self.choose_trim)
         layout.addWidget(self.trim_button)
+
+        self.video_speed_button = QPushButton("Video hızını değiştir…")
+        self.video_speed_button.clicked.connect(self.choose_video_speed)
+        layout.addWidget(self.video_speed_button)
         layout.addStretch()
 
     def start_drag_monitor(self) -> None:
@@ -458,6 +463,25 @@ class Window(QWidget):
                 self.start_progress_job(
                     lambda progress: convert_video(source, output_format, progress=progress),
                     "Video dönüştürülüyor…",
+                )
+        finally:
+            self.set_drag_monitor_enabled(self.job is None)
+
+    def choose_video_speed(self) -> None:
+        if self.job is not None:
+            return
+        self.set_drag_monitor_enabled(False)
+        try:
+            source = self.choose_video_source("Hızı değiştirilecek videoyu seç")
+            if source is None:
+                return
+            speed, accepted = QInputDialog.getDouble(
+                self, "Video hızını değiştir", "Oynatma hızı (×)", 1.25, 0.5, 2.0, 2
+            )
+            if accepted:
+                self.start_progress_job(
+                    lambda progress: change_video_speed(source, speed, progress=progress),
+                    "Video hızı değiştiriliyor…",
                 )
         finally:
             self.set_drag_monitor_enabled(self.job is None)
@@ -1043,6 +1067,7 @@ class Window(QWidget):
         self.mute_button.setEnabled(enabled)
         self.frame_button.setEnabled(enabled)
         self.trim_button.setEnabled(enabled)
+        self.video_speed_button.setEnabled(enabled)
         self.qr_button.setEnabled(enabled)
         self.image_ocr_button.setEnabled(enabled)
 

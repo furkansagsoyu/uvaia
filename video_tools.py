@@ -231,6 +231,7 @@ def save_encoded_video(
     *,
     seek: str | None = None,
     duration_ms: int | None = None,
+    speed: float = 1.0,
     progress: JobProgress | None = None,
 ) -> Path:
     limit = ("-t", format_timestamp(duration_ms)) if duration_ms is not None else ()
@@ -239,15 +240,24 @@ def save_encoded_video(
         total_us = duration_ms * 1000 if duration_ms is not None else probe_video_duration(
             source, progress
         )
+        if total_us is not None:
+            total_us = round(total_us / speed)
         progress.report(0, 100 if total_us else 0)
 
     def report_time(elapsed_us: int) -> None:
         if progress is not None and total_us:
             progress.report(min(99, elapsed_us * 100 // total_us), 100)
+    video_filter = "pad=ceil(iw/2)*2:ceil(ih/2)*2"
+    timing: tuple[str, ...] = ()
+    if speed != 1:
+        video_filter = f"{video_filter},settb=AVTB,setpts=PTS/{speed}"
+        timing = ("-af", f"atempo={speed}", "-fps_mode", "vfr", "-enc_time_base:v", "filter")
+
     options = (
         *limit,
         "-map", "0:V:0", "-map", "0:a:0?",
-        "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2", "-pix_fmt", "yuv420p",
+        "-vf", video_filter, "-pix_fmt", "yuv420p",
+        *timing,
         "-map_chapters", "-1", "-progress", "pipe:1",
         *VIDEO_EXPORT_OPTIONS[output_format],
     )
@@ -320,3 +330,16 @@ def mute_video(source: Path) -> Path:
 
     destination = source.with_name(f"{source.stem}-sessiz{extension}")
     return save_new_file(destination, encode)
+
+
+def change_video_speed(
+    source: Path, speed: float, *, progress: JobProgress | None = None
+) -> Path:
+    if not 0.5 <= speed <= 2.0:
+        raise ValueError("Video hızı 0,50× ile 2,00× arasında olmalı.")
+    speed = round(speed, 2)
+    if speed == 1:
+        raise ValueError("Hızı değiştirmek için 1,00× dışında bir değer seç.")
+
+    destination = source.with_name(f"{source.stem}-hiz-{speed:.2f}x.mp4")
+    return save_encoded_video(source, destination, "MP4", speed=speed, progress=progress)

@@ -189,3 +189,9 @@ düğmesiyle kopyalayabilirsin.
 PDF’de tarama yapmak için **PDF** sekmesinde **PDF’de QR kodu ara…** seçeneğini
 aç. Tüm belge için alanı boş bırak veya `1, 3-5` gibi sayfalar seç. Sonuçlarda
 her kodun bulunduğu sayfa numarası gösterilir.
+
+## Video hızını değiştirme
+
+**Video hızını değiştir…** ile 0,50× ve 2,00× arasında bir hız seç.
+Uvaia görüntünün hızını ve varsa ilk ses parçasının temposunu birlikte
+değiştirir. Çıktı kaynak klasöre `video-hiz-1.50x.mp4` gibi bir adla yazılır.
