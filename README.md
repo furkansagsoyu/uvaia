@@ -18,8 +18,10 @@ kaydedilir. Aynı isimde bir dosya varsa numaralı bir ad kullanılır. JPG çı
 ## Sürüklerken çarkı açma
 
 Uvaia açıkken Nemo'da bir görseli sol tuşla sürüklemeye başla. **Shift**'e basınca
-işlem çarkı imlecin yakınında açılır. Görseli **PNG**, **JPG** veya **WebP**
-düğmesinin üstüne bırak. Sürüklemeyi iptal edersen çark kapanır.
+işlem çarkı imlecin yakınında açılır. Fareyi basılı tutarken **Shift’i bırak**,
+ardından görseli **PNG**, **JPG** veya **WebP** düğmesinin üstüne bırak.
+Nemo, Shift basılıyken taşıma işlemi sunar. Uvaia, kaynak dosyayı korumak için
+yalnızca kopyalama işlemini kabul eder. Sürüklemeyi iptal edersen çark kapanır.
 
 Bu kısayol X11 oturumunda çalışır. Uvaia'nın penceresine dosya bırakmak ve
 dosya seçiciyi kullanmak da mümkündür.

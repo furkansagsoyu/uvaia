@@ -20,7 +20,14 @@ from PySide6.QtWidgets import (
 
 from Xlib import error as x11_error
 
-from drag_wheel import DragWheel, WHEEL_POSITIONS, WheelMonitor, accept_copy, local_drop_path
+from drag_wheel import (
+    WHEEL_POSITIONS,
+    DragWheel,
+    WheelMonitor,
+    accept_copy,
+    local_drop_path,
+    offers_file_copy,
+)
 from image_conversion import FORMATS, convert_image
 
 STYLE = """
@@ -143,7 +150,7 @@ class Window(QWidget):
         self.status.clear()
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
-        if self.job is None and local_drop_path(event) is not None:
+        if self.job is None and offers_file_copy(event):
             accept_copy(event)
 
     def dropEvent(self, event: QDropEvent) -> None:

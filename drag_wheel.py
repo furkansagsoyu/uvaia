@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QPoint, QTimer, Qt, Signal
-from PySide6.QtGui import QCursor, QDropEvent
+from PySide6.QtGui import QCursor, QDragEnterEvent, QDragMoveEvent, QDropEvent
 from PySide6.QtWidgets import QApplication, QGridLayout, QLabel, QPushButton, QWidget
 from Xlib import X, display, error
 
@@ -14,12 +14,19 @@ from image_conversion import FORMATS
 WHEEL_POSITIONS = ((0, 1), (2, 0), (2, 2))
 
 
+def offers_file_copy(event: QDropEvent) -> bool:
+    return bool(
+        event.possibleActions() & Qt.DropAction.CopyAction and event.mimeData().hasUrls()
+    )
+
+
 def local_drop_path(event: QDropEvent) -> Path | None:
-    """Tek bir yerel dosya ve kopyalama işlemi kabul eder."""
+    """Dosya listesini yalnız bırakma olayında ister."""
+    if not offers_file_copy(event):
+        return None
     urls = event.mimeData().urls()
-    if event.possibleActions() & Qt.DropAction.CopyAction and len(urls) == 1:
-        if urls[0].isLocalFile():
-            return Path(urls[0].toLocalFile())
+    if len(urls) == 1 and urls[0].isLocalFile():
+        return Path(urls[0].toLocalFile())
     return None
 
 
@@ -66,9 +73,10 @@ class DragWheel(QWidget):
         layout = QGridLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(10)
-        center = QLabel("Bir biçime bırak")
-        center.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(center, 1, 1)
+        self.hint = QLabel("Shift’i bırak, fareyi tut")
+        self.hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.hint.setMinimumWidth(self.hint.sizeHint().width())
+        layout.addWidget(self.hint, 1, 0, 1, 3)
         for output_format, position in zip(FORMATS, WHEEL_POSITIONS, strict=True):
             target = QPushButton(output_format)
             target.setProperty("format", True)
@@ -94,13 +102,22 @@ class DragWheel(QWidget):
         self.show()
         self.raise_()
 
-    def dragEnterEvent(self, event: QDropEvent) -> None:
-        if local_drop_path(event) is not None:
-            accept_copy(event)
+    def update_hint(self, shift: bool) -> None:
+        message = "Shift’i bırak, fareyi tut" if shift else "Bir biçime bırak"
+        if self.hint.text() != message:
+            self.hint.setText(message)
 
-    def dragMoveEvent(self, event: QDropEvent) -> None:
-        if self.format_at(event) and local_drop_path(event) is not None:
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
+        if offers_file_copy(event):
             accept_copy(event)
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event: QDragMoveEvent) -> None:
+        if self.format_at(event) and offers_file_copy(event):
+            accept_copy(event)
+        else:
+            event.ignore()
 
     def dropEvent(self, event: QDropEvent) -> None:
         source = local_drop_path(event)
@@ -109,6 +126,8 @@ class DragWheel(QWidget):
             accept_copy(event)
             self.hide()
             self.file_dropped.emit(source, output_format)
+        else:
+            event.ignore()
 
     def format_at(self, event: QDropEvent) -> str | None:
         target = self.childAt(event.position().toPoint())
@@ -136,7 +155,10 @@ class WheelMonitor(QTimer):
             return
         if dragging:
             self.release_ticks = 0
-            if self.enabled and shift and not self.wheel.isVisible():
+            if self.wheel.isVisible():
+                self.wheel.update_hint(shift)
+            elif self.enabled and shift:
+                self.wheel.update_hint(shift=True)
                 self.wheel.open_near_cursor()
         elif self.wheel.isVisible():
             self.release_ticks += 1
