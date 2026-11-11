@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import BinaryIO
 
 from PIL import Image, ImageOps
 
@@ -85,3 +86,27 @@ def convert_images(sources: tuple[Path, ...], output_format: str) -> str:
             raise ValueError(issue)
         return f"{converted}/{len(sources)} görsel {output_format} olarak kaydedildi. {issue}"
     return f"{converted} görsel {output_format} olarak kaydedildi."
+
+
+def compress_image(source: Path, output_format: str, quality: int) -> Path:
+    """Boyutları korur ve yalnızca daha küçük bir dosya elde edilirse kaydeder."""
+    if output_format not in ("JPG", "WebP") or not 1 <= quality <= 95:
+        raise ValueError("JPG veya WebP seç ve kaliteyi 1–95 arasında gir.")
+
+    source_size = source.stat().st_size
+    image, _ = read_still_image(source)
+    if output_format == "JPG":
+        image = flatten_on_white(image)
+        pillow_format = "JPEG"
+        options = {"quality": quality, "optimize": True}
+    else:
+        pillow_format = "WebP"
+        options = {"quality": quality, "method": 6}
+
+    def encode(stream: BinaryIO) -> None:
+        image.save(stream, format=pillow_format, **options)
+        if stream.tell() >= source_size:
+            raise ValueError("Çıktı kaynak dosyadan küçük olmadı. Daha düşük kalite dene.")
+
+    destination = source.with_name(f"{source.stem}-sikistirilmis{FORMATS[output_format]}")
+    return save_new_file(destination, encode)

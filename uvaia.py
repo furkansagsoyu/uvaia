@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
 
 from Xlib import error as x11_error
 
+from compression_dialog import CompressionDialog
 from crop_dialog import CropDialog, read_preview
 from drag_wheel import (
     WHEEL_POSITIONS,
@@ -35,7 +36,7 @@ from drag_wheel import (
     local_drop_paths,
     offers_file_copy,
 )
-from image_conversion import FORMATS, convert_image, convert_images
+from image_conversion import FORMATS, compress_image, convert_image, convert_images
 from file_order_dialog import FileOrderDialog
 from pdf_tools import extract_pages, images_to_pdf, merge_pdfs
 from qr_reader import read_qr_codes
@@ -131,6 +132,9 @@ class Window(QWidget):
         self.crop_button = QPushButton("Görseli kırp…")
         self.crop_button.clicked.connect(self.choose_crop)
         wheel_layout.addWidget(self.crop_button, 4, 0, 1, 3)
+        self.compress_button = QPushButton("Görseli sıkıştır…")
+        self.compress_button.clicked.connect(self.choose_compression)
+        wheel_layout.addWidget(self.compress_button, 5, 0, 1, 3)
         self.wheel.hide()
         layout.addWidget(self.wheel)
 
@@ -215,6 +219,7 @@ class Window(QWidget):
         self.wheel.show()
         self.resize_button.hide()
         self.crop_button.hide()
+        self.compress_button.hide()
         self.audio_button.setText("Videodan MP3 çıkar…")
         self.status.clear()
         return True
@@ -233,6 +238,7 @@ class Window(QWidget):
         self.source = source
         self.resize_button.show()
         self.crop_button.show()
+        self.compress_button.show()
         self.drop_zone.setText(source.name)
         self.wheel.show()
         self.audio_button.setText("Videodan MP3 çıkar…")
@@ -370,6 +376,22 @@ class Window(QWidget):
                 if bounds is not None:
                     operation = partial(convert_image, source, None, crop_bounds=bounds)
                     self.start_job(operation, "Görsel kırpılıyor…")
+        finally:
+            dialog.deleteLater()
+            self.set_drag_monitor_enabled(self.job is None)
+
+    def choose_compression(self) -> None:
+        source = self.source
+        if source is None or self.job is not None:
+            return
+        self.set_drag_monitor_enabled(False)
+        dialog = CompressionDialog(source.name, self)
+        try:
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                operation = partial(
+                    compress_image, source, dialog.output_format.currentText(), dialog.quality.value()
+                )
+                self.start_job(operation, "Görsel sıkıştırılıyor…")
         finally:
             dialog.deleteLater()
             self.set_drag_monitor_enabled(self.job is None)

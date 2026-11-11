@@ -26,6 +26,10 @@ oran eklenir (`foto-50pct.png` gibi).
 kopyayı kaydet** seçimi kaynak klasöre `foto-kirpilmis.png` gibi bir dosya
 olarak yazar.
 
+**Görseli sıkıştır…** ile JPG veya WebP ve 1–95 arası kalite seç. Uvaia
+piksel boyutlarını korur. Çıktı kaynak dosyadan küçükse
+`foto-sikistirilmis.webp` gibi bir kopya kaydeder.
+
 ## Sürüklerken çarkı açma
 
 Uvaia açıkken Nemo'da seçili görselleri sol tuşla sürüklemeye başla. **Shift**'e basınca
