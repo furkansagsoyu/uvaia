@@ -44,9 +44,9 @@ from file_order_dialog import FileOrderDialog
 from image_adjust_dialog import ImageAdjustDialog
 from image_conversion import FORMATS, adjust_image, compress_image, convert_image, convert_images
 from image_preview import read_preview_image, to_qimage
+from ocr_tools import ocr_image, ocr_pdf
 from orientation_dialog import OrientationDialog
 from output_files import SavedOutputs
-from pdf_ocr import ocr_pdf
 from pdf_render import render_pdf_pages
 from pdf_render_dialog import PdfRenderDialog
 from pdf_rotate_dialog import PdfRotateDialog
@@ -229,6 +229,10 @@ class Window(QWidget):
         self.qr_button = QPushButton("QR kodu oku…")
         self.qr_button.clicked.connect(self.choose_qr)
         layout.addWidget(self.qr_button)
+
+        self.image_ocr_button = QPushButton("Görseldeki yazıyı oku (OCR)…")
+        self.image_ocr_button.clicked.connect(self.choose_image_ocr)
+        layout.addWidget(self.image_ocr_button)
         layout.addStretch()
 
     def build_pdf_tools(self) -> None:
@@ -591,23 +595,41 @@ class Window(QWidget):
             dialog.deleteLater()
             self.set_drag_monitor_enabled(self.job is None)
 
+    def choose_image_source(self, title: str) -> Path | None:
+        source = self.source
+        if source is not None and not self.wheel.isHidden():
+            return source
+
+        filename, _ = QFileDialog.getOpenFileName(self, title)
+        if not filename:
+            return None
+        source = Path(filename)
+        self.select_image(source)
+        return source
+
     def choose_qr(self) -> None:
         if self.job is not None:
             return
         self.set_drag_monitor_enabled(False)
         try:
-            source = self.source
-            if source is None or self.wheel.isHidden():
-                filename, _ = QFileDialog.getOpenFileName(self, "QR kodu içeren görseli seç")
-                if not filename:
-                    return
-                source = Path(filename)
-                self.select_image(source)
-            self.start_job(
-                partial(read_qr_codes, source),
-                "QR kodu aranıyor…",
-                on_success=self.show_qr_result,
-            )
+            source = self.choose_image_source("QR kodu içeren görseli seç")
+            if source is not None:
+                self.start_job(
+                    partial(read_qr_codes, source),
+                    "QR kodu aranıyor…",
+                    on_success=self.show_qr_result,
+                )
+        finally:
+            self.set_drag_monitor_enabled(self.job is None)
+
+    def choose_image_ocr(self) -> None:
+        if self.job is not None:
+            return
+        self.set_drag_monitor_enabled(False)
+        try:
+            source = self.choose_image_source("Yazısını okuyacağın görseli seç")
+            if source is not None:
+                self.start_job(partial(ocr_image, source), "Görseldeki yazı okunuyor…")
         finally:
             self.set_drag_monitor_enabled(self.job is None)
 
@@ -901,6 +923,7 @@ class Window(QWidget):
         self.frame_button.setEnabled(enabled)
         self.trim_button.setEnabled(enabled)
         self.qr_button.setEnabled(enabled)
+        self.image_ocr_button.setEnabled(enabled)
 
     def closeEvent(self, event: QCloseEvent) -> None:
         if self.job is not None:

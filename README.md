@@ -100,7 +100,7 @@ seçimini işle. Uvaia metin içeren sayfaları, sayfa numaralarıyla birlikte
 `belge-metin.txt` dosyasına UTF-8 olarak kaydeder. Bu araç PDF’nin seçilebilir
 metin katmanını kullanır.
 
-## Taranmış PDF’yi OCR ile okuma
+## Taranmış PDF ve görselleri OCR ile okuma
 
 Linux Mint’te Tesseract ve dil paketlerini bir kez kur:
 
@@ -111,6 +111,9 @@ sudo apt install tesseract-ocr tesseract-ocr-tur tesseract-ocr-eng
 PDF sekmesinde **Taranmış PDF’yi oku (OCR)…** seçeneğini aç. Tüm belgeyi veya
 `1, 3-5` gibi sayfaları seç. Uvaia Türkçe ve İngilizce yazıyı yerel olarak
 tanır ve kaynak klasöre `belge-ocr.txt` olarak kaydeder.
+
+Ekran görüntüsü veya fotoğraf için **Görsel** sekmesinde **Görseldeki yazıyı
+oku (OCR)…** seçeneğini kullan. Çıktı `foto-ocr.txt` olarak kaydedilir.
 
 ## PDF sayfalarını döndürme
 
