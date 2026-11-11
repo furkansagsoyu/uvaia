@@ -7,6 +7,7 @@ import re
 import selectors
 import subprocess
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from time import monotonic
 from typing import BinaryIO
@@ -20,8 +21,8 @@ VIDEO_CONTAINERS = {".mp4": "mp4", ".mkv": "matroska", ".mov": "mov", ".webm": "
 VIDEO_EXTENSIONS = tuple(VIDEO_CONTAINERS)
 VIDEO_EXPORT_OPTIONS = {
     "MP4": (
-        "-c:v", "libx264", "-preset", "fast", "-crf", "20",
-        "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", "-f", "mp4",
+        "-c:v", "libx264", "-preset", "fast",
+        "-c:a", "aac", "-movflags", "+faststart", "-f", "mp4",
     ),
     "WebM": (
         "-c:v", "libvpx-vp9", "-deadline", "good", "-cpu-used", "4", "-crf", "32", "-b:v", "0",
@@ -32,6 +33,16 @@ INPUT_DURATION = re.compile(
     rb"(?m)^  Duration: ([0-9]+):([0-9]{2}):([0-9]{2})(?:\.([0-9]+))?,"
 )
 TIMESTAMP = re.compile(r"([0-9]{1,7}(?::[0-9]{1,2}){0,2})(?:[.,]([0-9]{1,3}))?")
+
+
+@dataclass(frozen=True)
+class VideoCompression:
+    max_height: int
+    crf: int
+
+    def __post_init__(self) -> None:
+        if self.max_height not in (0, 480, 720, 1080) or self.crf not in (23, 28, 33):
+            raise ValueError("Geçerli bir video boyutu ve kalite seç.")
 
 
 def ffmpeg_command(
@@ -232,6 +243,7 @@ def save_encoded_video(
     seek: str | None = None,
     duration_ms: int | None = None,
     speed: float = 1.0,
+    compression: VideoCompression | None = None,
     progress: JobProgress | None = None,
 ) -> Path:
     limit = ("-t", format_timestamp(duration_ms)) if duration_ms is not None else ()
@@ -248,6 +260,15 @@ def save_encoded_video(
         if progress is not None and total_us:
             progress.report(min(99, elapsed_us * 100 // total_us), 100)
     video_filter = "pad=ceil(iw/2)*2:ceil(ih/2)*2"
+    source_size = source.stat().st_size if compression is not None else None
+    if compression is not None and compression.max_height:
+        video_filter += f",scale=-2:min(ih\\,{compression.max_height})"
+
+    quality: tuple[str, ...] = ()
+    if output_format == "MP4":
+        quality = ("-crf", str(compression.crf), "-b:a", "128k") if compression else (
+            "-crf", "20", "-b:a", "192k"
+        )
     timing: tuple[str, ...] = ()
     if speed != 1:
         video_filter = f"{video_filter},settb=AVTB,setpts=PTS/{speed}"
@@ -259,7 +280,7 @@ def save_encoded_video(
         "-vf", video_filter, "-pix_fmt", "yuv420p",
         *timing,
         "-map_chapters", "-1", "-progress", "pipe:1",
-        *VIDEO_EXPORT_OPTIONS[output_format],
+        *VIDEO_EXPORT_OPTIONS[output_format], *quality,
     )
 
     def encode(stream: BinaryIO) -> None:
@@ -277,6 +298,8 @@ def save_encoded_video(
             if duration_ms is not None:
                 raise ValueError("Bu aralıkta video karesi yok. Daha erken bir başlangıç seç.")
             raise ValueError("Dosyada kaydedilebilecek video karesi yok.")
+        if source_size is not None and output.stat().st_size >= source_size:
+            raise ValueError("Çıktı kaynak videodan küçük olmadı. Daha düşük kalite veya boyut dene.")
         if progress is not None:
             progress.check_cancelled()
 
@@ -343,3 +366,12 @@ def change_video_speed(
 
     destination = source.with_name(f"{source.stem}-hiz-{speed:.2f}x.mp4")
     return save_encoded_video(source, destination, "MP4", speed=speed, progress=progress)
+
+
+def compress_video(
+    source: Path, settings: VideoCompression, *, progress: JobProgress | None = None
+) -> Path:
+    destination = source.with_name(f"{source.stem}-sikistirilmis.mp4")
+    return save_encoded_video(
+        source, destination, "MP4", compression=settings, progress=progress
+    )

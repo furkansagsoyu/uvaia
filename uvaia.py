@@ -59,11 +59,13 @@ from pdf_split_dialog import PdfSplitDialog
 from pdf_text import extract_pdf_text
 from pdf_tools import extract_pages, images_to_pdf, merge_pdfs, rotate_pages, split_pdf
 from qr_reader import read_pdf_qr_codes, read_qr_codes
+from video_compression_dialog import VideoCompressionDialog
 from video_frame_dialog import VideoFrameDialog
 from video_tools import (
     VIDEO_EXPORT_OPTIONS,
     VIDEO_EXTENSIONS,
     change_video_speed,
+    compress_video,
     convert_video,
     extract_frame,
     extract_mp3,
@@ -316,6 +318,10 @@ class Window(QWidget):
         self.video_convert_button.clicked.connect(self.choose_video_conversion)
         layout.addWidget(self.video_convert_button)
 
+        self.video_compress_button = QPushButton("Videoyu sıkıştır…")
+        self.video_compress_button.clicked.connect(self.choose_video_compression)
+        layout.addWidget(self.video_compress_button)
+
         self.audio_button = QPushButton("Videodan MP3 çıkar…")
         self.audio_button.clicked.connect(self.choose_video)
         layout.addWidget(self.audio_button)
@@ -535,6 +541,27 @@ class Window(QWidget):
                     lambda progress: convert_video(source, output_format, progress=progress),
                     "Video dönüştürülüyor…",
                 )
+        finally:
+            self.set_drag_monitor_enabled(self.job is None)
+
+    def choose_video_compression(self) -> None:
+        if self.job is not None:
+            return
+        self.set_drag_monitor_enabled(False)
+        try:
+            source = self.choose_video_source("Sıkıştırılacak videoyu seç")
+            if source is None:
+                return
+            dialog = VideoCompressionDialog(source.name, self)
+            try:
+                if dialog.exec() == QDialog.DialogCode.Accepted:
+                    settings = dialog.settings()
+                    self.start_progress_job(
+                        lambda progress: compress_video(source, settings, progress=progress),
+                        "Video sıkıştırılıyor…",
+                    )
+            finally:
+                dialog.deleteLater()
         finally:
             self.set_drag_monitor_enabled(self.job is None)
 
@@ -1165,6 +1192,7 @@ class Window(QWidget):
         self.pdf_qr_button.setEnabled(enabled)
         self.images_pdf_button.setEnabled(enabled)
         self.video_convert_button.setEnabled(enabled)
+        self.video_compress_button.setEnabled(enabled)
         self.audio_button.setEnabled(enabled)
         self.mute_button.setEnabled(enabled)
         self.frame_button.setEnabled(enabled)

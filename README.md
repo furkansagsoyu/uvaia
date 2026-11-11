@@ -154,6 +154,12 @@ akışını ve varsa ilk ses parçasını seçtiğin biçimde kaynak klasöre ka
 Dönüştürme ve kesme sırasında ilerlemeyi görebilirsin. **İptal et** çalışan
 FFmpeg işlemini durdurur ve yarım video dosyasını kaydetmez.
 
+## Videoyu sıkıştırma
+
+**Videoyu sıkıştır…** ile çıktı yüksekliğini ve kaliteyi seç. Seçilen yükseklik
+üst sınırdır. Uvaia küçük videoları büyütmez ve görüntü oranını korur.
+Yalnızca daha küçük bir çıktı elde edilirse `video-sikistirilmis.mp4` kaydedilir.
+
 ## Videodan MP3 çıkarma
 
 MP4, MKV, MOV, WebM veya AVI dosyasını ana pencereye bırak ve **MP3 olarak
