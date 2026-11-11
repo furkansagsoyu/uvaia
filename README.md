@@ -85,6 +85,12 @@ bırakmadan da aynı düğmeyle bir PDF seçebilirsin. `1, 3-5` gibi sayfa numar
 veya aralıkları yaz. Uvaia sayfaları girdiğin sırayla, kaynak PDF’nin klasöründeki
 `dosya-sayfalar.pdf` dosyasına kaydeder.
 
+## PDF sayfalarını döndürme
+
+**PDF sayfalarını döndür…** ile sayfaları 90° sağa, 90° sola veya 180°
+döndür. Tüm belge için sayfa alanını boş bırak ya da `1, 3-5` gibi bir
+seçim yaz. Çıktı kaynak klasöre `belge-dondurulmus.pdf` olarak kaydedilir.
+
 ## PDF sayfalarını PNG veya JPG olarak kaydetme
 
 PDF sekmesinde **PDF’yi görsele dönüştür…** seçeneğini aç. **Sayfalar** alanını

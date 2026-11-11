@@ -1,4 +1,4 @@
-"""PDF birleştirme, sayfa çıkarma ve görsel dışa aktarma işlemleri."""
+"""PDF birleştirme, sayfa düzenleme ve görsel dışa aktarma işlemleri."""
 
 from __future__ import annotations
 
@@ -96,3 +96,22 @@ def images_to_pdf(sources: list[Path]) -> Path:
         first = sources[0]
         destination = first.with_name(f"{first.stem}-gorseller.pdf")
         return save_new_file(destination, writer.write)
+
+
+def rotate_pages(source: Path, selection: str, degrees: int) -> Path:
+    if degrees not in (90, -90, 180):
+        raise ValueError("90° sağa, 90° sola veya 180° dönüş seç.")
+
+    with read_pdf(source) as reader:
+        count = len(reader.pages)
+        if count == 0:
+            raise ValueError("PDF’de döndürülecek sayfa yok.")
+        pages = parse_pages(selection, count) if selection.strip() else range(count)
+        with PdfWriter() as writer:
+            writer.clone_document_from_reader(reader)
+            for index in pages:
+                page = writer.pages[index]
+                page.rotation = (page.rotation + degrees) % 360
+
+            destination = source.with_name(f"{source.stem}-dondurulmus.pdf")
+            return save_new_file(destination, writer.write)
