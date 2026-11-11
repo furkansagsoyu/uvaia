@@ -4,3 +4,4 @@ python-xlib>=0.33,<1
 pypdf>=6.19,<8
 imageio-ffmpeg>=0.6,<1
 zxing-cpp>=2.3,<4
+pypdfium2>=5,<6

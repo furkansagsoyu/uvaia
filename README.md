@@ -85,6 +85,12 @@ bırakmadan da aynı düğmeyle bir PDF seçebilirsin. `1, 3-5` gibi sayfa numar
 veya aralıkları yaz. Uvaia sayfaları girdiğin sırayla, kaynak PDF’nin klasöründeki
 `dosya-sayfalar.pdf` dosyasına kaydeder.
 
+## PDF sayfalarını PNG veya JPG olarak kaydetme
+
+PDF sekmesinde **PDF’yi görsele dönüştür…** seçeneğini aç. **Sayfalar** alanını
+tüm belge için boş bırak veya `1, 3-5` gibi bir seçim yaz. Uvaia her sayfayı
+144 DPI ile kaynak klasöre `belge-sayfa-3.png` gibi ayrı bir dosya olarak yazar.
+
 ## Videodan MP3 çıkarma
 
 MP4, MKV, MOV, WebM veya AVI dosyasını ana pencereye bırak ve **MP3 olarak

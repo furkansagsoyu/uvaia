@@ -41,6 +41,8 @@ from drag_wheel import (
 from file_order_dialog import FileOrderDialog
 from image_conversion import FORMATS, compress_image, convert_image, convert_images
 from orientation_dialog import OrientationDialog
+from pdf_render import render_pdf_pages
+from pdf_render_dialog import PdfRenderDialog
 from pdf_tools import extract_pages, images_to_pdf, merge_pdfs
 from qr_reader import read_qr_codes
 from video_tools import VIDEO_EXTENSIONS, extract_frame, extract_mp3, trim_video
@@ -195,6 +197,10 @@ class Window(QWidget):
         self.pages_button = QPushButton("PDF’den sayfa çıkar…")
         self.pages_button.clicked.connect(self.choose_pages)
         layout.addWidget(self.pages_button)
+
+        self.pdf_render_button = QPushButton("PDF’yi görsele dönüştür…")
+        self.pdf_render_button.clicked.connect(self.choose_pdf_render)
+        layout.addWidget(self.pdf_render_button)
         layout.addStretch()
 
     def build_video_tools(self) -> None:
@@ -568,21 +574,28 @@ class Window(QWidget):
             dialog.deleteLater()
             self.set_drag_monitor_enabled(self.job is None)
 
+    def choose_pdf_source(self) -> Path | None:
+        source = self.source
+        if source is not None and source.suffix.lower() == ".pdf":
+            return source
+
+        filename, _ = QFileDialog.getOpenFileName(
+            self, "PDF seç", filter="PDF (*.pdf *.PDF)"
+        )
+        if not filename:
+            return None
+        source = Path(filename)
+        self.select_pdf(source)
+        return source
+
     def choose_pages(self) -> None:
         if self.job is not None:
             return
-        source = self.source
         self.set_drag_monitor_enabled(False)
         try:
-            if source is None or source.suffix.lower() != ".pdf":
-                filename, _ = QFileDialog.getOpenFileName(
-                    self, "PDF seç", filter="PDF (*.pdf *.PDF)"
-                )
-                if not filename:
-                    return
-                source = Path(filename)
-                self.select_pdf(source)
-
+            source = self.choose_pdf_source()
+            if source is None:
+                return
             selection, accepted = QInputDialog.getText(
                 self,
                 "PDF’den sayfa çıkar",
@@ -590,6 +603,29 @@ class Window(QWidget):
             )
             if accepted:
                 self.start_job(partial(extract_pages, source, selection), "Sayfalar çıkarılıyor…")
+        finally:
+            self.set_drag_monitor_enabled(self.job is None)
+
+    def choose_pdf_render(self) -> None:
+        if self.job is not None:
+            return
+        self.set_drag_monitor_enabled(False)
+        try:
+            source = self.choose_pdf_source()
+            if source is None:
+                return
+            dialog = PdfRenderDialog(source.name, self)
+            try:
+                if dialog.exec() == QDialog.DialogCode.Accepted:
+                    operation = partial(
+                        render_pdf_pages,
+                        source,
+                        dialog.pages.text(),
+                        dialog.output_format.currentText(),
+                    )
+                    self.start_job(operation, "PDF sayfaları görsele dönüştürülüyor…")
+            finally:
+                dialog.deleteLater()
         finally:
             self.set_drag_monitor_enabled(self.job is None)
 
@@ -635,6 +671,7 @@ class Window(QWidget):
         self.wheel.setEnabled(enabled)
         self.pdf_button.setEnabled(enabled)
         self.pages_button.setEnabled(enabled)
+        self.pdf_render_button.setEnabled(enabled)
         self.images_pdf_button.setEnabled(enabled)
         self.audio_button.setEnabled(enabled)
         self.frame_button.setEnabled(enabled)
