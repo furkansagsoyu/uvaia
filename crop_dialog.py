@@ -8,7 +8,7 @@ from PySide6.QtWidgets import QDialog, QDialogButtonBox, QLabel, QVBoxLayout, QW
 
 from image_conversion import CropBounds
 
-SELECTION_COLOR = QColor("#eac174")
+SELECTION_COLOR = QColor("#ffc447")
 
 
 class CropPreview(QWidget):

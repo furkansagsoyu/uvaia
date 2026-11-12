@@ -80,31 +80,38 @@ from video_trim_dialog import VideoTrimDialog
 ICON_PATH = Path(__file__).resolve().parent / "assets" / "uvaia.png"
 
 STYLE = """
-QWidget { background: #151e1c; color: #f4f1e6; font-size: 14px; }
+QWidget { background: #281323; color: #fff1db; font-size: 14px; }
 QLabel#title { font-size: 34px; font-weight: 750; }
-QLabel#status, QLabel#dropHint { color: #b5c6bc; }
+QLabel#status, QLabel#dropHint { color: #d8bdcf; }
 QLabel#dropZone { font-size: 19px; font-weight: 650; }
-QFrame#dropCard { background: #202f29; border: 1px dashed #7c9988; border-radius: 17px; }
-QFrame#dropCard[dragging="true"] { background: #2a3b30; border-color: #f4bd58; }
+QFrame#dropCard { background: #391e34; border: 1px dashed #a86e97; border-radius: 17px; }
+QFrame#dropCard[dragging="true"] { background: #4b2841; border-color: #ff9b39; }
 QFrame#dropCard QLabel { background: transparent; }
-QPushButton { background: #263730; border: 1px solid #3d5448; border-radius: 9px;
+QPushButton { background: #43263d; border: 1px solid #774a6d; border-radius: 9px;
     min-height: 24px; padding: 8px 13px; }
-QPushButton#pick, QPushButton[format="true"] { background: #f4bd58; color: #202014;
-    border-color: #f4bd58; font-weight: 700; }
+QPushButton#pick, QPushButton[format="true"] { background: #ff9b39; color: #341023;
+    border-color: #ff9b39; font-weight: 700; }
 QPushButton[format="true"] { border-radius: 19px; }
-QPushButton:hover { border-color: #f4bd58; }
-QPushButton#pick:hover, QPushButton[format="true"]:hover { background: #ffd481; }
-QPushButton:focus { border-color: #ffffff; }
+QPushButton:hover { border-color: #ff9b39; }
+QPushButton#pick:hover, QPushButton[format="true"]:hover { background: #ffc447; }
+QPushButton:focus { border-color: #fff2c5; }
 QPushButton:disabled, QPushButton#pick:disabled, QPushButton[format="true"]:disabled {
-    color: #a6b3ac; background: #26312d; border-color: #3d4a44; }
-QTabWidget::pane { border: 1px solid #36483f; border-radius: 11px; }
+    color: #c8adbd; background: #3a2636; border-color: #62465a; }
+QTabWidget::pane { border: 1px solid #6a4260; border-radius: 11px; }
 QTabBar::tab { padding: 9px 15px; border: 1px solid transparent;
-    border-bottom: 2px solid transparent; color: #b5c6bc; }
-QTabBar::tab:selected { color: #ffe2a4; border-bottom-color: #f4bd58; }
-QTabBar::tab:hover { background: #263730; }
-QTabBar::tab:focus { border-top-color: #b5c6bc; }
-QProgressBar { border: 1px solid #3d5448; border-radius: 7px; text-align: center; }
-QProgressBar::chunk { background: #356551; border-radius: 6px; }
+    border-bottom: 2px solid transparent; color: #d8bdcf; }
+QTabBar::tab:selected { color: #ffd363; border-bottom-color: #ff9b39; }
+QTabBar::tab:hover { background: #43263d; }
+QTabBar::tab:focus { border-top-color: #d8bdcf; }
+QProgressBar { border: 1px solid #774a6d; border-radius: 7px; text-align: center; }
+QLineEdit, QPlainTextEdit, QSpinBox, QComboBox, QListWidget {
+    background: #33192e; border: 1px solid #774a6d; border-radius: 6px;
+    selection-background-color: #17685e; selection-color: #fff1db;
+}
+QLineEdit:focus, QPlainTextEdit:focus, QSpinBox:focus, QComboBox:focus, QListWidget:focus {
+    border-color: #ff9b39;
+}
+QProgressBar::chunk { background: #17685e; border-radius: 6px; }
 """
 
 
