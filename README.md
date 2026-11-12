@@ -60,4 +60,6 @@ Desteklenen biçimler, toplu işlemler ve çıktı seçenekleri [kullanım kıla
 
 Mint paketi üretmek için sanal ortama PyInstaller kur ve `tools/build_deb.sh` çalıştır. Paket `dist/` klasörüne yazılır.
 
-Sürükle-bırak çarkı [Nashi](https://github.com/orkunisitmak/nashi-app) uygulamasından ilham alır.
+## Teşekkür
+
+Uvaia’nın çıkış fikrini [Nashi](https://github.com/orkunisitmak/nashi-app) projesinden aldık. İlham için Nashi ekibine teşekkür ederiz.
