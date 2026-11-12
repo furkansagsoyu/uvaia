@@ -88,6 +88,7 @@ class DragWheel(QWidget):
         self.center = QPointF(self.SIZE / 2, self.SIZE / 2)
         self.highlight: str | None = None
         self.shift_held = False
+        self.copy_ready = False
         self.sectors = {
             output_format: self.sector(angle)
             for output_format, angle in zip(FORMATS, self.ANGLES, strict=True)
@@ -137,7 +138,12 @@ class DragWheel(QWidget):
         font.setPixelSize(13)
         painter.setFont(font)
         painter.setPen(QColor("#fff1db"))
-        hint = "Shift’i bırak\nFareyi tut" if self.shift_held else "Biçime bırak"
+        if self.shift_held:
+            hint = "Shift’i bırak\nFareyi tut"
+        elif self.highlight and not self.copy_ready:
+            hint = "İmleci dilimde\nbiraz oynat"
+        else:
+            hint = "Biçime bırak"
         painter.drawText(QRectF(84, 154, 140, 43), Qt.AlignmentFlag.AlignCenter, hint)
 
     def open_near_cursor(self) -> None:
@@ -159,9 +165,10 @@ class DragWheel(QWidget):
             self.shift_held = shift
             self.update()
 
-    def set_highlight(self, output_format: str | None) -> None:
-        if self.highlight != output_format:
+    def set_highlight(self, output_format: str | None, *, copy_ready: bool = False) -> None:
+        if (self.highlight, self.copy_ready) != (output_format, copy_ready):
             self.highlight = output_format
+            self.copy_ready = copy_ready
             self.update()
 
     def format_at(self, position: QPointF) -> str | None:
@@ -172,16 +179,18 @@ class DragWheel(QWidget):
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
         if event.mimeData().hasUrls():
-            self.set_highlight(self.format_at(event.position()))
-        if offers_file_copy(event):
-            accept_copy(event)
+            self.set_highlight(self.format_at(event.position()), copy_ready=offers_file_copy(event))
+            # Shift basılıyken Qt hedefi kaybetmemeli. Kopyalama koşulunu
+            # hareket ve bırakma olaylarında denetle.
+            event.accept()
         else:
             event.ignore()
 
     def dragMoveEvent(self, event: QDragMoveEvent) -> None:
         output_format = self.format_at(event.position()) if event.mimeData().hasUrls() else None
-        self.set_highlight(output_format)
-        if output_format and offers_file_copy(event):
+        copy_ready = offers_file_copy(event)
+        self.set_highlight(output_format, copy_ready=copy_ready)
+        if output_format and copy_ready:
             accept_copy(event)
         else:
             event.ignore()

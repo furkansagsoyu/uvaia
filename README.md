@@ -71,6 +71,7 @@ için aynı komuta `--remove` ekle.
 Uvaia açıkken Nemo'da seçili görselleri sol tuşla sürüklemeye başla. **Shift**'e basınca
 işlem çarkı imlecin etrafında açılır. Fareyi basılı tutarken **Shift’i bırak**,
 ardından görselleri **PNG**, **JPG** veya **WebP** diliminin üstüne bırak.
+Shift’i dilimin üzerindeyken bıraktıysan fare tuşunu bırakmadan imleci biraz oynat.
 Nemo, Shift basılıyken taşıma işlemi sunar. Uvaia, kaynak dosyayı korumak için
 yalnızca kopyalama işlemini kabul eder. Sürüklemeyi iptal edersen çark kapanır.
 
