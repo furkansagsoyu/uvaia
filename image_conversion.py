@@ -11,7 +11,7 @@ from PIL import Image, ImageEnhance, ImageOps
 from job_progress import JobCancelled, JobProgress, tracked_items
 from output_files import SavedOutputs, save_new_file
 
-FORMATS = {"PNG": ".png", "JPG": ".jpg", "WebP": ".webp"}
+FORMATS = {"PNG": ".png", "JPG": ".jpg", "WebP": ".webp", "TIFF": ".tiff", "BMP": ".bmp", "AVIF": ".avif"}
 SOURCE_FORMATS = {"PNG": "PNG", "JPEG": "JPG", "WEBP": "WebP"}
 CropBounds = tuple[float, float, float, float]
 ROTATIONS = (None, Image.Transpose.ROTATE_270, Image.Transpose.ROTATE_180, Image.Transpose.ROTATE_90)
@@ -119,7 +119,7 @@ def convert_image(
 
 
 def save_image_copy(image: Image.Image, destination: Path, output_format: str) -> Path:
-    if output_format == "JPG":
+    if output_format in ("JPG", "BMP"):
         image = flatten_on_white(image)
     pillow_format = "JPEG" if output_format == "JPG" else output_format
     return save_new_file(destination, lambda stream: image.save(stream, format=pillow_format))
@@ -170,7 +170,7 @@ def compress_image(source: Path, output_format: str, quality: int) -> Path:
 
     source_size = source.stat().st_size
     image, _ = read_still_image(source)
-    if output_format == "JPG":
+    if output_format in ("JPG", "BMP"):
         image = flatten_on_white(image)
         pillow_format = "JPEG"
         options = {"quality": quality, "optimize": True}

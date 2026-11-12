@@ -17,7 +17,7 @@ from imageio_ffmpeg import get_ffmpeg_exe
 from job_progress import JobProgress
 from output_files import save_new_file
 
-VIDEO_CONTAINERS = {".mp4": "mp4", ".mkv": "matroska", ".mov": "mov", ".webm": "webm", ".avi": "avi"}
+VIDEO_CONTAINERS = {".mp4": "mp4", ".mkv": "matroska", ".mov": "mov", ".webm": "webm", ".avi": "avi", ".wmv": "asf"}
 VIDEO_EXTENSIONS = tuple(VIDEO_CONTAINERS)
 VIDEO_EXPORT_OPTIONS = {
     "MP4": (
@@ -28,6 +28,10 @@ VIDEO_EXPORT_OPTIONS = {
         "-c:v", "libvpx-vp9", "-deadline", "good", "-cpu-used", "4", "-crf", "32", "-b:v", "0",
         "-c:a", "libopus", "-b:a", "128k", "-f", "webm",
     ),
+    "MOV": ("-c:v", "libx264", "-preset", "fast", "-c:a", "aac", "-f", "mov"),
+    "MKV": ("-c:v", "libx264", "-preset", "fast", "-c:a", "aac", "-f", "matroska"),
+    "AVI": ("-c:v", "mpeg4", "-q:v", "4", "-c:a", "libmp3lame", "-f", "avi"),
+    "WMV": ("-c:v", "wmv2", "-q:v", "4", "-c:a", "wmav2", "-f", "asf"),
 }
 INPUT_DURATION = re.compile(
     rb"(?m)^  Duration: ([0-9]+):([0-9]{2}):([0-9]{2})(?:\.([0-9]+))?,"
@@ -329,7 +333,7 @@ def convert_video(
     source: Path, output_format: str, *, progress: JobProgress | None = None
 ) -> Path:
     if output_format not in VIDEO_EXPORT_OPTIONS:
-        raise ValueError("Video biçimi olarak MP4 veya WebM seç.")
+        raise ValueError("Geçerli bir video biçimi seç.")
     destination = source.with_suffix(f".{output_format.lower()}")
     return save_encoded_video(source, destination, output_format, progress=progress)
 
@@ -339,7 +343,7 @@ def mute_video(source: Path) -> Path:
     extension = source.suffix.lower()
     container = VIDEO_CONTAINERS.get(extension)
     if container is None:
-        raise ValueError("Sessiz kopya için MP4, MKV, MOV, WebM veya AVI seç.")
+        raise ValueError("Sessiz kopya için MP4, MKV, MOV, WebM, AVI veya WMV seç.")
 
     def encode(stream: BinaryIO) -> None:
         output = Path(stream.name)

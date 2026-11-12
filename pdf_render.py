@@ -60,8 +60,8 @@ def render_pdf_pages(
     *,
     progress: JobProgress | None = None,
 ) -> Path | SavedOutputs:
-    if output_format not in ("PNG", "JPG"):
-        raise ValueError("PNG veya JPG biçimini seç.")
+    if output_format not in ("PNG", "JPG", "WebP"):
+        raise ValueError("PNG, JPG veya WebP biçimini seç.")
 
     with closing(open_pdf_document(source)) as document:
         pages = page_indices(document, selection)

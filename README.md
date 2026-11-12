@@ -68,11 +68,15 @@ için aynı komuta `--remove` ekle.
 
 ## Sürüklerken çarkı açma
 
-Uvaia açıkken Nemo’da bir dosyayı veya birden fazla görseli sürükle. **Shift**
-ile çarkı aç. Fareyi basılı tutarken **Shift’i bırak**, imleci istediğin
-dilime götür ve dosyayı bırak. Çark görseller için PNG/JPG/WebP, videolar
-için MP4/WebM/MP3, ses için MP3/WAV/FLAC, PDF için PNG/JPG sunar.
-PDF dönüştürmede her sayfa ayrı bir görsel olarak kaydedilir.
+Uvaia açıkken Nemo’da bir dosyayı veya aynı türden birkaç dosyayı sürükle.
+**Shift** ile çarkı aç. Fareyi basılı tutarken **Shift’i bırak**, imleci
+istediğin dilime götür ve dosyaları bırak.
+
+- Görsel: PNG, JPG, WebP, TIFF, BMP, AVIF ve PDF. AVIF, kurulu Pillow sürümü destekliyorsa görünür.
+- Video: MP4, WebM, MOV, MKV, AVI, WMV ve MP3.
+- Ses: MP3, WAV, FLAC, M4A, OGG, Opus, AIFF ve WMA.
+- PDF: PNG, JPG, WebP veya TXT. Görsel çıktıda her sayfa ayrı kaydedilir.
+
 Shift’i dilimin üzerindeyken bıraktıysan imleci biraz oynat.
 Nemo, Shift basılıyken taşıma işlemi sunar. Uvaia, kaynak dosyayı korumak için
 yalnızca kopyalama işlemini kabul eder. Sürüklemeyi iptal edersen çark kapanır.
@@ -84,10 +88,15 @@ Sürükle-bırak akışı Nashi'den ilham alır.
 
 ## Ctrl ile araç çarkı
 
-Tek bir dosyayı sürüklerken **Ctrl**’e bas. Ctrl basılıyken bir dilime bırak.
-Uvaia dosyaya uygun araçları gösterir. Görsellerde kırpma, sıkıştırma ve
-döndürme, videoda kesme, sıkıştırma ve kare alma, seste kesme, PDF’de metin
-çıkarma, bölme ve döndürme, ZIP’te arşivi açma kullanılabilir.
+Dosyaları sürüklerken **Ctrl**’e bas ve istediğin dilime bırak. Çark
+seçilen dosya türüne göre araçları gösterir. Görselde işaretleme, renk ayarı,
+meta veri temizleme ve QR okuma; videoda hız değiştirme ve sesi kaldırma;
+seste ses düzeyini dengeleme ve mono/stereo; PDF’de sayfa düzenleme ve OCR
+çarktan açılabilir.
+
+Birden fazla video, ses veya PDF bıraktığında birleştirme, birden fazla
+görsel bıraktığında PDF oluşturma listesi açılır. Kaydetmeden önce sırayı
+değiştirebilirsin.
 
 ## Görsellerden PDF oluşturma
 
@@ -150,16 +159,16 @@ oku (OCR)…** seçeneğini kullan. Çıktı `foto-ocr.txt` olarak kaydedilir.
 döndür. Tüm belge için sayfa alanını boş bırak ya da `1, 3-5` gibi bir
 seçim yaz. Çıktı kaynak klasöre `belge-dondurulmus.pdf` olarak kaydedilir.
 
-## PDF sayfalarını PNG veya JPG olarak kaydetme
+## PDF sayfalarını görsel olarak kaydetme
 
 PDF sekmesinde **PDF’yi görsele dönüştür…** seçeneğini aç. **Sayfalar** alanını
 tüm belge için boş bırak veya `1, 3-5` gibi bir seçim yaz. Uvaia her sayfayı
-144 DPI ile kaynak klasöre `belge-sayfa-3.png` gibi ayrı bir dosya olarak yazar.
+PNG, JPG veya WebP olarak 144 DPI ile kaynak klasöre yazar.
 İptal isteği işlenen sayfa bitince uygulanır. Kaydedilmiş sayfalar korunur.
 
-## Videoyu MP4 veya WebM’ye dönüştürme
+## Video dönüştürme
 
-Video sekmesinde **Videoyu dönüştür…** ile MP4 veya WebM seç. Uvaia ilk video
+Video sekmesinde **Videoyu dönüştür…** ile MP4, WebM, MOV, MKV, AVI veya WMV seç. Uvaia ilk video
 akışını ve varsa ilk ses parçasını seçtiğin biçimde kaynak klasöre kaydeder.
 Dönüştürme ve kesme sırasında ilerlemeyi görebilirsin. **İptal et** çalışan
 FFmpeg işlemini durdurur ve yarım video dosyasını kaydetmez.
@@ -172,7 +181,7 @@ Yalnızca daha küçük bir çıktı elde edilirse `video-sikistirilmis.mp4` kay
 
 ## Videodan MP3 çıkarma
 
-MP4, MKV, MOV, WebM veya AVI dosyasını ana pencereye bırak ve **MP3 olarak
+MP4, MKV, MOV, WebM, AVI veya WMV dosyasını ana pencereye bırak ve **MP3 olarak
 kaydet**’e bas. **Videodan MP3 çıkar…** düğmesiyle de video seçebilirsin.
 İlk ses parçası videonun klasörüne MP3 olarak yazılır. Ses parçası olmayan
 videolar için uygulama hata gösterir.
@@ -220,14 +229,14 @@ değiştirir. Çıktı kaynak klasöre `video-hiz-1.50x.mp4` gibi bir adla yazı
 
 ## Ses dönüştürme
 
-Bir ses dosyasını pencereye bırak ve **Ses → Sesi dönüştür…** ile MP3, WAV
-veya FLAC seç. Çıktı kaynak klasöre kaydedilir. İlerlemeyi görebilir ve yarım
+Bir ses dosyasını pencereye bırak ve **Ses → Sesi dönüştür…** ile MP3, WAV, FLAC, M4A,
+OGG, Opus, AIFF veya WMA seç. Çıktı kaynak klasöre kaydedilir. İlerlemeyi görebilir ve yarım
 çıktı bırakmadan işlemi iptal edebilirsin.
 
 ## Sesi kesme
 
-**Ses → Sesi kes…** ile başlangıç ve bitiş zamanını gir, ardından MP3, WAV
-veya FLAC seç. `12,5` ve `00:12.500` aynı zamanı belirtir. Kesit yeni bir
+**Ses → Sesi kes…** ile başlangıç ve bitiş zamanını gir, ardından çıktı biçimini
+seç. `12,5` ve `00:12.500` aynı zamanı belirtir. Kesit yeni bir
 dosya olarak kaynak klasöre kaydedilir.
 
 ## ZIP arşivleri
@@ -260,7 +269,7 @@ sayfaları döndür veya çıkar ve yeni PDF olarak kaydet.
 ## Mint için .deb
 
 Hazır `.deb` dosyasını Cinnamon’da paket yükleyiciyle açabilir veya
-`sudo apt install ./uvaia_0.1.0_amd64.deb` ile kurabilirsin.
+`sudo apt install ./uvaia_0.1.1_amd64.deb` ile kurabilirsin.
 
 Paketi kaynak koddan üretmek için sanal ortama `pyinstaller` kur ve
 `tools/build_deb.sh` çalıştır. Dosya `dist/` klasörüne yazılır.

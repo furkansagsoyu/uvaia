@@ -2,7 +2,7 @@
 # Linux Mint üzerinde bağımsız bir Uvaia .deb paketi oluşturur.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-version=${1:-0.1.0}
+version=${1:-0.1.1}
 architecture=$(dpkg --print-architecture)
 build=$(mktemp -d)
 trap 'rm -rf "$build"' EXIT

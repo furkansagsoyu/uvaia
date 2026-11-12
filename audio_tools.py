@@ -11,11 +11,16 @@ from video_tools import (
     ffmpeg_command, format_timestamp, probe_media_duration, run_ffmpeg, run_ffmpeg_process,
 )
 
-AUDIO_EXTENSIONS = (".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg", ".opus", ".aif", ".aiff")
+AUDIO_EXTENSIONS = (".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg", ".opus", ".aif", ".aiff", ".wma")
 AUDIO_EXPORT_OPTIONS = {
     "MP3": ("-c:a", "libmp3lame", "-q:a", "2", "-f", "mp3"),
     "WAV": ("-c:a", "pcm_s16le", "-f", "wav"),
     "FLAC": ("-c:a", "flac", "-f", "flac"),
+    "M4A": ("-c:a", "aac", "-b:a", "192k", "-f", "ipod"),
+    "OGG": ("-c:a", "libvorbis", "-q:a", "5", "-f", "ogg"),
+    "Opus": ("-c:a", "libopus", "-b:a", "128k", "-f", "opus"),
+    "AIFF": ("-c:a", "pcm_s16be", "-f", "aiff"),
+    "WMA": ("-c:a", "wmav2", "-b:a", "192k", "-f", "asf"),
 }
 
 
@@ -25,10 +30,11 @@ def save_audio(
     output_format: str,
     *,
     interval: tuple[int, int] | None = None,
+    audio_options: tuple[str, ...] = (),
     progress: JobProgress | None = None,
 ) -> Path:
     if output_format not in AUDIO_EXPORT_OPTIONS:
-        raise ValueError("Ses biçimi olarak MP3, WAV veya FLAC seç.")
+        raise ValueError("Geçerli bir ses biçimi seç.")
 
     seek = None
     limit: tuple[str, ...] = ()
@@ -53,7 +59,7 @@ def save_audio(
     def encode(stream: BinaryIO) -> None:
         output = Path(stream.name)
         options = (
-            "-map", "0:a:0", "-abort_on", "empty_output", *limit, *AUDIO_EXPORT_OPTIONS[output_format]
+            "-map", "0:a:0", "-abort_on", "empty_output", *limit, *audio_options, *AUDIO_EXPORT_OPTIONS[output_format]
         )
         if progress is None:
             process = run_ffmpeg(source, output, options, seek=seek)
@@ -97,4 +103,19 @@ def trim_audio(
     )
     return save_audio(
         source, destination, output_format, interval=interval, progress=progress
+    )
+
+
+def edit_audio(
+    source: Path, *, channels: int | None = None, progress: JobProgress | None = None
+) -> Path:
+    if channels is None:
+        suffix = "dengeli"
+        options = ("-af", "loudnorm=I=-16:TP=-1.5:LRA=11", "-ar", "48000")
+    else:
+        suffix = "mono" if channels == 1 else "stereo"
+        options = ("-ac", str(channels))
+    return save_audio(
+        source, source.with_name(f"{source.stem}-{suffix}.wav"), "WAV",
+        audio_options=options, progress=progress,
     )

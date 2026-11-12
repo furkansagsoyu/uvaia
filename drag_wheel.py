@@ -1,4 +1,4 @@
-"""X11 sürüklemelerinde dosya dönüştürme çarkını açar."""
+"""X11 sürüklemelerinde dosyaya uygun dönüştürme ve araç çarklarını açar."""
 
 from __future__ import annotations
 
@@ -17,6 +17,14 @@ from Xlib import X, display, error
 from audio_tools import AUDIO_EXPORT_OPTIONS, AUDIO_EXTENSIONS
 from image_conversion import FORMATS
 from video_tools import VIDEO_EXPORT_OPTIONS, VIDEO_EXTENSIONS
+
+IMAGE_TOOLS = (
+    "Kırp", "Sıkıştır", "Döndür", "Boyutlandır", "Renk ayarı", "İşaretle",
+    "Meta veri", "QR oku", "OCR", "PDF oluştur",
+)
+VIDEO_TOOLS = ("Kes", "Sıkıştır", "Kare al", "Sessize al", "Hız değiştir", "Birleştir")
+AUDIO_TOOLS = ("Kes", "Sesi dengele", "Ses kanalı", "Birleştir")
+PDF_TOOLS = ("Metin çıkar", "Böl", "Döndür", "Sayfa düzenle", "Sayfa çıkar", "QR oku", "OCR")
 
 WHEEL_POSITIONS = ((0, 1), (2, 0), (2, 2))
 
@@ -41,35 +49,50 @@ def local_drop_paths(event: QDropEvent) -> tuple[Path, ...]:
     return paths if all(path.is_file() for path in paths) else ()
 
 
+def file_family(path: Path) -> str:
+    extension = path.suffix.lower()
+    if extension in VIDEO_EXTENSIONS:
+        return "video"
+    if extension in AUDIO_EXTENSIONS:
+        return "audio"
+    if extension in (".pdf", ".zip"):
+        return extension[1:]
+    if extension in Image.registered_extensions():
+        return "image"
+    return ""
+
+
+def shared_family(paths: tuple[Path, ...]) -> str:
+    families = {file_family(path) for path in paths}
+    return families.pop() if len(families) == 1 else ""
+
+
 def wheel_formats(paths: tuple[Path, ...]) -> tuple[str, ...]:
-    if not paths:
-        return ()
-    extensions = [path.suffix.lower() for path in paths]
-    if len(paths) == 1:
-        extension = extensions[0]
-        if extension in VIDEO_EXTENSIONS:
-            return (*VIDEO_EXPORT_OPTIONS, "MP3")
-        if extension in AUDIO_EXTENSIONS:
-            return tuple(AUDIO_EXPORT_OPTIONS)
-        if extension == ".pdf":
-            return ("PNG", "JPG")
-    images = Image.registered_extensions()
-    return tuple(FORMATS) if all(extension in images for extension in extensions) else ()
+    family = shared_family(paths)
+    if family == "video":
+        return (*VIDEO_EXPORT_OPTIONS, "MP3")
+    if family == "audio":
+        return tuple(AUDIO_EXPORT_OPTIONS)
+    if family == "pdf":
+        return "PNG", "JPG", "WebP", "TXT"
+    if family == "image":
+        Image.init()
+        formats = tuple(name for name in FORMATS if name != "AVIF" or "AVIF" in Image.SAVE)
+        return (*formats, "PDF")
+    return ()
 
 
 def wheel_tools(paths: tuple[Path, ...]) -> tuple[str, ...]:
-    if len(paths) != 1:
-        return ()
-    extension = paths[0].suffix.lower()
-    if extension in VIDEO_EXTENSIONS:
-        return "Kes", "Sıkıştır", "Kare al"
-    if extension in AUDIO_EXTENSIONS:
-        return ("Kes",)
-    if extension == ".pdf":
-        return "Metin çıkar", "Böl", "Döndür"
-    if extension == ".zip":
-        return ("ZIP’i aç",)
-    return ("Kırp", "Sıkıştır", "Döndür") if wheel_formats(paths) else ()
+    family = shared_family(paths)
+    if len(paths) > 1:
+        return {
+            "video": ("Birleştir",), "audio": ("Birleştir",),
+            "pdf": ("Birleştir",), "image": ("PDF oluştur",),
+        }.get(family, ())
+    return {
+        "video": VIDEO_TOOLS, "audio": AUDIO_TOOLS, "pdf": PDF_TOOLS,
+        "image": IMAGE_TOOLS, "zip": ("ZIP’i aç",),
+    }.get(family, ())
 
 
 def accept_copy(event: QDropEvent) -> None:
@@ -102,9 +125,9 @@ class DragWheel(QWidget):
     file_dropped = Signal(object, str)
     tool_dropped = Signal(object, str)
 
-    SIZE = 308
-    OUTER_RADIUS = 151
-    INNER_RADIUS = 77
+    SIZE = 416
+    OUTER_RADIUS = 204
+    INNER_RADIUS = 96
 
     def __init__(self, icon: QIcon) -> None:
         super().__init__(
@@ -173,12 +196,15 @@ class DragWheel(QWidget):
             painter.setPen(QColor("#341023" if selected else "#fff1db"))
             x = self.center.x() + radius * cos(radians(angle))
             y = self.center.y() - radius * sin(radians(angle))
-            painter.drawText(QRectF(x - 55, y - 14, 110, 28), Qt.AlignmentFlag.AlignCenter, output_format)
+            label = output_format
+            if len(self.sectors) >= 7 and len(label) > 9:
+                label = label.replace(" ", "\n", 1)
+            painter.drawText(QRectF(x - 51, y - 20, 102, 40), Qt.AlignmentFlag.AlignCenter, label)
 
         painter.setPen(QPen(QColor("#427c71"), 1.5))
         painter.setBrush(QColor("#203735"))
         painter.drawEllipse(self.circle(self.INNER_RADIUS - 6))
-        painter.drawPixmap(QRect(129, 103, 50, 50), self.icon)
+        painter.drawPixmap(QRect(self.SIZE // 2 - 25, self.SIZE // 2 - 51, 50, 50), self.icon)
         font.setPixelSize(13)
         painter.setFont(font)
         painter.setPen(QColor("#fff1db"))
@@ -192,7 +218,7 @@ class DragWheel(QWidget):
             hint = "İmleci dilimde\nbiraz oynat"
         else:
             hint = "Araca bırak" if self.tools_mode else "Biçime bırak"
-        painter.drawText(QRectF(84, 154, 140, 43), Qt.AlignmentFlag.AlignCenter, hint)
+        painter.drawText(QRectF(self.center.x() - 70, self.center.y(), 140, 43), Qt.AlignmentFlag.AlignCenter, hint)
 
     def open_near_cursor(self, *, tools_mode: bool = False) -> None:
         self.tools_mode = tools_mode
@@ -262,7 +288,7 @@ class DragWheel(QWidget):
             accept_copy(event)
             self.hide()
             if self.tools_mode:
-                self.tool_dropped.emit(paths[0], output_format)
+                self.tool_dropped.emit(paths, output_format)
             else:
                 self.file_dropped.emit(paths, output_format)
         else:
@@ -271,7 +297,7 @@ class DragWheel(QWidget):
 
 
 class WheelMonitor(QTimer):
-    """Shift ile açılan çarkı sürükleme sona erdiğinde kapatır."""
+    """Sürükleme sırasında tuşla çarkı açar, sürükleme bitince kapatır."""
 
     def __init__(self, window: QWidget, wheel: DragWheel) -> None:
         super().__init__(window)

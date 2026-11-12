@@ -34,7 +34,7 @@ from PySide6.QtWidgets import (
 from Xlib import error as x11_error
 
 from archive_tools import create_zip, extract_zip
-from audio_tools import AUDIO_EXPORT_OPTIONS, AUDIO_EXTENSIONS, convert_audio, trim_audio
+from audio_tools import AUDIO_EXPORT_OPTIONS, AUDIO_EXTENSIONS, convert_audio, edit_audio, trim_audio
 from audio_trim_dialog import AudioTrimDialog
 from compression_dialog import CompressionDialog
 from crop_dialog import CropDialog
@@ -50,7 +50,7 @@ from drag_wheel import (
 )
 from file_order_dialog import FileOrderDialog
 from image_adjust_dialog import ImageAdjustDialog
-from image_conversion import FORMATS, adjust_image, compress_image, convert_image, convert_images
+from image_conversion import adjust_image, compress_image, convert_image, convert_images
 from image_markup import MarkupDialog, save_markup
 from image_metadata import inspect_image, save_clean_png
 from image_preview import read_preview_image, to_qimage
@@ -81,6 +81,7 @@ from video_tools import (
     trim_video,
 )
 from video_trim_dialog import VideoTrimDialog
+from wheel_conversion import convert_drop_files
 
 ICON_PATH = Path(__file__).resolve().parent / "assets" / "uvaia.png"
 
@@ -277,7 +278,7 @@ class Window(QWidget):
         center = QLabel("Dönüştür")
         center.setAlignment(Qt.AlignmentFlag.AlignCenter)
         formats.addWidget(center, 1, 1)
-        for output_format, position in zip(FORMATS, WHEEL_POSITIONS, strict=True):
+        for output_format, position in zip(("PNG", "JPG", "WebP"), WHEEL_POSITIONS, strict=True):
             button = QPushButton(output_format)
             button.setProperty("format", True)
             button.clicked.connect(lambda checked=False, fmt=output_format: self.convert(fmt))
@@ -309,7 +310,7 @@ class Window(QWidget):
 
         actions = QGridLayout()
         self.images_pdf_button = QPushButton("Görsellerden PDF…")
-        self.images_pdf_button.clicked.connect(self.choose_images_for_pdf)
+        self.images_pdf_button.clicked.connect(lambda: self.choose_images_for_pdf())
         actions.addWidget(self.images_pdf_button, 0, 0)
 
         self.qr_button = QPushButton("QR kodu oku…")
@@ -441,63 +442,71 @@ class Window(QWidget):
             return
         self.showNormal()
         self.raise_()
-        if len(paths) > 1:
-            if self.select_batch(paths):
-                self.convert(output_format)
-            return
+        if len(paths) == 1:
+            self.select_file(paths[0])
+        self.start_progress_job(
+            partial(convert_drop_files, paths, output_format), f"{output_format} hazırlanıyor…"
+        )
 
-        source = paths[0]
-        self.select_file(source)
-        extension = source.suffix.lower()
-        if extension in VIDEO_EXTENSIONS:
-            if output_format == "MP3":
-                self.start_job(partial(extract_mp3, source), "MP3 hazırlanıyor…")
-            else:
-                self.start_progress_job(
-                    lambda progress: convert_video(source, output_format, progress=progress),
-                    "Video dönüştürülüyor…",
-                )
-        elif extension in AUDIO_EXTENSIONS:
-            self.start_progress_job(
-                lambda progress: convert_audio(source, output_format, progress=progress),
-                "Ses dönüştürülüyor…",
-            )
-        elif extension == ".pdf":
-            self.start_progress_job(
-                lambda progress: render_pdf_pages(source, "", output_format, progress=progress),
-                "PDF sayfaları görsele dönüştürülüyor…",
-                unit="sayfa",
-            )
-        else:
-            self.convert(output_format)
-
-    def queue_tool_drop(self, source: Path, label: str) -> None:
+    def queue_tool_drop(self, paths: tuple[Path, ...], label: str) -> None:
         # Önce kaynak uygulamaya XDND bırakma yanıtı dönsün.
-        QTimer.singleShot(0, self, lambda: self.open_tool_drop(source, label))
+        QTimer.singleShot(0, self, lambda: self.open_tool_drop(paths, label))
 
-    def open_tool_drop(self, source: Path, label: str) -> None:
-        if self.job is not None or label not in wheel_tools((source,)):
+    def open_tool_drop(self, paths: tuple[Path, ...], label: str) -> None:
+        if self.job is not None or label not in wheel_tools(paths):
             return
         self.showNormal()
         self.raise_()
-        self.select_file(source)
+        self.select_file(paths[0])
         actions = {
             self.image_tab: {
                 "Kırp": self.choose_crop, "Sıkıştır": self.choose_compression,
-                "Döndür": self.choose_orientation,
+                "Döndür": self.choose_orientation, "Boyutlandır": self.choose_scale,
+                "Renk ayarı": self.choose_image_adjustments, "İşaretle": self.choose_markup,
+                "Meta veri": self.choose_image_metadata, "QR oku": self.choose_qr,
+                "OCR": self.choose_image_ocr, "PDF oluştur": partial(self.choose_images_for_pdf, paths),
             },
             self.video_tab: {
                 "Kes": self.choose_trim, "Sıkıştır": self.choose_video_compression,
-                "Kare al": self.choose_frame,
+                "Kare al": self.choose_frame, "Sessize al": self.choose_mute,
+                "Hız değiştir": self.choose_video_speed,
+                "Birleştir": partial(self.choose_media_join, video=True, initial=paths),
             },
-            self.audio_tab: {"Kes": self.choose_audio_trim},
+            self.audio_tab: {
+                "Kes": self.choose_audio_trim, "Sesi dengele": self.choose_audio_edit,
+                "Ses kanalı": partial(self.choose_audio_edit, choose_channels=True),
+                "Birleştir": partial(self.choose_media_join, video=False, initial=paths),
+            },
             self.pdf_tab: {
                 "Metin çıkar": self.choose_pdf_text, "Böl": self.choose_pdf_split,
-                "Döndür": self.choose_pdf_rotate,
+                "Döndür": self.choose_pdf_rotate, "Sayfa düzenle": self.choose_pdf_organize,
+                "Sayfa çıkar": self.choose_pages, "QR oku": self.choose_pdf_qr,
+                "OCR": self.choose_pdf_ocr, "Birleştir": partial(self.choose_pdfs, paths),
             },
             self.archive_tab: {"ZIP’i aç": self.choose_zip_extract},
         }
         actions[self.tools.currentWidget()][label]()
+
+    def choose_audio_edit(self, *, choose_channels: bool = False) -> None:
+        source = self.source
+        if source is None:
+            return
+        channels = None
+        if choose_channels:
+            self.set_drag_monitor_enabled(False)
+            try:
+                choice, accepted = QInputDialog.getItem(
+                    self, "Ses kanalı", "Çıktı kanalları", ("Mono", "Stereo"), editable=False,
+                )
+            finally:
+                self.set_drag_monitor_enabled(self.job is None)
+            if not accepted:
+                return
+            channels = 1 if choice == "Mono" else 2
+        self.start_progress_job(
+            lambda progress: edit_audio(source, channels=channels, progress=progress),
+            "Ses düzenleniyor…",
+        )
 
     def choose_image(self) -> None:
         self.set_drag_monitor_enabled(False)
@@ -644,13 +653,14 @@ class Window(QWidget):
         finally:
             self.set_drag_monitor_enabled(self.job is None)
 
-    def choose_media_join(self, *, video: bool) -> None:
+    def choose_media_join(self, *, video: bool, initial: tuple[Path, ...] = ()) -> None:
         if self.job is not None:
             return
         extensions = VIDEO_EXTENSIONS if video else AUDIO_EXTENSIONS
         title = "Videoları birleştir" if video else "Sesleri birleştir"
         patterns = " ".join(f"*{ext} *{ext.upper()}" for ext in extensions)
-        initial = (self.source,) if self.source and self.source.suffix.lower() in extensions else ()
+        if not initial and self.source and self.source.suffix.lower() in extensions:
+            initial = (self.source,)
         dialog = FileOrderDialog(
             self, title=title, hint="Dosyalar listedeki sırayla birleştirilir.",
             add_label="Dosya ekle…", save_label="Birleştir",
@@ -1102,12 +1112,13 @@ class Window(QWidget):
         )
         self.run_file_order_dialog(dialog, merge_pdfs, "PDF’ler birleştiriliyor…")
 
-    def choose_images_for_pdf(self) -> None:
+    def choose_images_for_pdf(self, initial: tuple[Path, ...] = ()) -> None:
         if self.job is not None:
             return
-        initial = self.batch_sources
-        if self.source is not None and not self.wheel.isHidden():
-            initial = (self.source,)
+        if not initial:
+            initial = self.batch_sources
+            if self.source is not None and not self.wheel.isHidden():
+                initial = (self.source,)
         dialog = FileOrderDialog(
             self,
             title="Görsellerden PDF oluştur",
@@ -1272,7 +1283,7 @@ class Window(QWidget):
     def choose_pdf_render(self) -> None:
         choices = self.choose_pdf_export(
             title="PDF’yi görsele dönüştür",
-            formats=("PNG", "JPG"),
+            formats=("PNG", "JPG", "WebP"),
             hint=f"Her sayfa {DPI} DPI ile ayrı bir görsele kaydedilir.",
             save_label="Görselleri kaydet",
         )
