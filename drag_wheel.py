@@ -57,6 +57,21 @@ def wheel_formats(paths: tuple[Path, ...]) -> tuple[str, ...]:
     return tuple(FORMATS) if all(extension in images for extension in extensions) else ()
 
 
+def wheel_tools(paths: tuple[Path, ...]) -> tuple[str, ...]:
+    if len(paths) != 1:
+        return ()
+    extension = paths[0].suffix.lower()
+    if extension in VIDEO_EXTENSIONS:
+        return "Kes", "Sıkıştır", "Kare al"
+    if extension in AUDIO_EXTENSIONS:
+        return ("Kes",)
+    if extension == ".pdf":
+        return "Metin çıkar", "Böl", "Döndür"
+    if extension == ".zip":
+        return ("ZIP’i aç",)
+    return ("Kırp", "Sıkıştır", "Döndür") if wheel_formats(paths) else ()
+
+
 def accept_copy(event: QDropEvent) -> None:
     event.setDropAction(Qt.DropAction.CopyAction)
     event.accept()
@@ -70,12 +85,12 @@ class X11Drag:
         self.root = self.connection.screen().root
         self.selection = self.connection.intern_atom("XdndSelection")
 
-    def state(self) -> tuple[bool, bool]:
+    def state(self) -> tuple[bool, bool, bool]:
         mask = self.root.query_pointer().mask
         dragging = bool(
             mask & X.Button1Mask and self.connection.get_selection_owner(self.selection)
         )
-        return dragging, bool(mask & X.ShiftMask)
+        return dragging, bool(mask & X.ShiftMask), bool(mask & X.ControlMask)
 
     def close(self) -> None:
         self.connection.close()
@@ -85,6 +100,7 @@ class DragWheel(QWidget):
     """Odak almadan açılan ve formatın üstüne bırakılan dosyaları ileten çark."""
 
     file_dropped = Signal(object, str)
+    tool_dropped = Signal(object, str)
 
     SIZE = 308
     OUTER_RADIUS = 151
@@ -111,6 +127,7 @@ class DragWheel(QWidget):
         self.copy_ready = False
         self.sectors: dict[str, tuple[float, QPainterPath]] = {}
         self.has_offer = False
+        self.tools_mode = False
 
     def set_formats(self, formats: tuple[str, ...]) -> None:
         step = 360 / len(formats) if formats else 0
@@ -143,7 +160,7 @@ class DragWheel(QWidget):
         painter.setBrush(QColor("#281323"))
         painter.drawEllipse(self.circle(self.OUTER_RADIUS + 2))
         font = painter.font()
-        font.setPixelSize(17)
+        font.setPixelSize(14 if self.tools_mode else 17)
         font.setBold(True)
         painter.setFont(font)
 
@@ -156,7 +173,7 @@ class DragWheel(QWidget):
             painter.setPen(QColor("#341023" if selected else "#fff1db"))
             x = self.center.x() + radius * cos(radians(angle))
             y = self.center.y() - radius * sin(radians(angle))
-            painter.drawText(QRectF(x - 34, y - 14, 68, 28), Qt.AlignmentFlag.AlignCenter, output_format)
+            painter.drawText(QRectF(x - 55, y - 14, 110, 28), Qt.AlignmentFlag.AlignCenter, output_format)
 
         painter.setPen(QPen(QColor("#427c71"), 1.5))
         painter.setBrush(QColor("#203735"))
@@ -168,16 +185,17 @@ class DragWheel(QWidget):
         if not self.has_offer:
             hint = "Dosyayı çarka\ngetir"
         elif not self.sectors:
-            hint = "Uygun dönüşüm\nbulunamadı"
+            hint = "Uygun seçenek\nbulunamadı"
         elif self.shift_held:
             hint = "Shift’i bırak\nFareyi tut"
         elif self.highlight and not self.copy_ready:
             hint = "İmleci dilimde\nbiraz oynat"
         else:
-            hint = "Biçime bırak"
+            hint = "Araca bırak" if self.tools_mode else "Biçime bırak"
         painter.drawText(QRectF(84, 154, 140, 43), Qt.AlignmentFlag.AlignCenter, hint)
 
-    def open_near_cursor(self) -> None:
+    def open_near_cursor(self, *, tools_mode: bool = False) -> None:
+        self.tools_mode = tools_mode
         self.has_offer = False
         self.set_formats(())
         self.set_highlight(None)
@@ -213,7 +231,7 @@ class DragWheel(QWidget):
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
         if event.mimeData().hasUrls():
             self.has_offer = True
-            self.set_formats(wheel_formats(offered_paths(event)))
+            self.set_formats(self.options(offered_paths(event)))
             self.set_highlight(self.format_at(event.position()), copy_ready=offers_file_copy(event))
             # Shift basılıyken Qt hedefi kaybetmemeli. Kopyalama koşulunu
             # hareket ve bırakma olaylarında denetle.
@@ -234,13 +252,19 @@ class DragWheel(QWidget):
         self.set_highlight(None)
         super().dragLeaveEvent(event)
 
+    def options(self, paths: tuple[Path, ...]) -> tuple[str, ...]:
+        return wheel_tools(paths) if self.tools_mode else wheel_formats(paths)
+
     def dropEvent(self, event: QDropEvent) -> None:
         output_format = self.format_at(event.position())
         paths = local_drop_paths(event) if output_format else ()
-        if output_format and output_format in wheel_formats(paths):
+        if output_format and output_format in self.options(paths):
             accept_copy(event)
             self.hide()
-            self.file_dropped.emit(paths, output_format)
+            if self.tools_mode:
+                self.tool_dropped.emit(paths[0], output_format)
+            else:
+                self.file_dropped.emit(paths, output_format)
         else:
             self.set_highlight(None)
             event.ignore()
@@ -260,7 +284,7 @@ class WheelMonitor(QTimer):
 
     def poll(self) -> None:
         try:
-            dragging, shift = self.drag.state()
+            dragging, shift, control = self.drag.state()
         except (error.ConnectionClosedError, error.XError):
             self.stop()
             self.wheel.hide()
@@ -268,10 +292,10 @@ class WheelMonitor(QTimer):
         if dragging:
             self.release_ticks = 0
             if self.wheel.isVisible():
+                self.wheel.update_hint(shift and not self.wheel.tools_mode)
+            elif self.enabled and shift != control:
                 self.wheel.update_hint(shift)
-            elif self.enabled and shift:
-                self.wheel.update_hint(shift=True)
-                self.wheel.open_near_cursor()
+                self.wheel.open_near_cursor(tools_mode=control)
         elif self.wheel.isVisible():
             self.release_ticks += 1
             # Fare bırakıldıktan sonra Qt'ye XDND bırakma olayını teslim etme süresi tanı.

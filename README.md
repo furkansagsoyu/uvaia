@@ -82,6 +82,13 @@ dosya seçiciyi kullanmak da mümkündür.
 
 Sürükle-bırak akışı Nashi'den ilham alır.
 
+## Ctrl ile araç çarkı
+
+Tek bir dosyayı sürüklerken **Ctrl**’e bas. Ctrl basılıyken bir dilime bırak.
+Uvaia dosyaya uygun araçları gösterir. Görsellerde kırpma, sıkıştırma ve
+döndürme, videoda kesme, sıkıştırma ve kare alma, seste kesme, PDF’de metin
+çıkarma, bölme ve döndürme, ZIP’te arşivi açma kullanılabilir.
+
 ## Görsellerden PDF oluşturma
 
 Bir veya daha fazla görseli ana pencereye bırak ve **Görsellerden PDF…**’yi aç.

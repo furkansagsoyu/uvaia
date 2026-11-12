@@ -46,6 +46,7 @@ from drag_wheel import (
     local_drop_paths,
     offers_file_copy,
     wheel_formats,
+    wheel_tools,
 )
 from file_order_dialog import FileOrderDialog
 from image_adjust_dialog import ImageAdjustDialog
@@ -416,8 +417,9 @@ class Window(QWidget):
         except x11_error.DisplayError:
             return
         wheel.file_dropped.connect(self.convert_drop)
+        wheel.tool_dropped.connect(self.queue_tool_drop)
         QApplication.instance().aboutToQuit.connect(self.monitor.shutdown)
-        self.drop_hint.setText("Görsel, PDF, video, ses ve ZIP · Dönüştürme çarkı: Shift")
+        self.drop_hint.setText("Görsel, PDF, video, ses ve ZIP · Dönüştür: Shift · Araçlar: Ctrl")
 
     def convert_drop(self, paths: tuple[Path, ...], output_format: str) -> None:
         if self.job is not None or output_format not in wheel_formats(paths):
@@ -453,6 +455,34 @@ class Window(QWidget):
             )
         else:
             self.convert(output_format)
+
+    def queue_tool_drop(self, source: Path, label: str) -> None:
+        # Önce kaynak uygulamaya XDND bırakma yanıtı dönsün.
+        QTimer.singleShot(0, self, lambda: self.open_tool_drop(source, label))
+
+    def open_tool_drop(self, source: Path, label: str) -> None:
+        if self.job is not None or label not in wheel_tools((source,)):
+            return
+        self.showNormal()
+        self.raise_()
+        self.select_file(source)
+        actions = {
+            self.image_tab: {
+                "Kırp": self.choose_crop, "Sıkıştır": self.choose_compression,
+                "Döndür": self.choose_orientation,
+            },
+            self.video_tab: {
+                "Kes": self.choose_trim, "Sıkıştır": self.choose_video_compression,
+                "Kare al": self.choose_frame,
+            },
+            self.audio_tab: {"Kes": self.choose_audio_trim},
+            self.pdf_tab: {
+                "Metin çıkar": self.choose_pdf_text, "Böl": self.choose_pdf_split,
+                "Döndür": self.choose_pdf_rotate,
+            },
+            self.archive_tab: {"ZIP’i aç": self.choose_zip_extract},
+        }
+        actions[self.tools.currentWidget()][label]()
 
     def choose_image(self) -> None:
         self.set_drag_monitor_enabled(False)
