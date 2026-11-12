@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 import sys
 from pathlib import Path
 
 APP_ID = "io.github.furkansagsoyu.Uvaia"
-ICON = "applications-graphics"
+ICON = APP_ID
 EXTENSIONS = "png;jpg;jpeg;webp;bmp;tif;tiff;gif;avif;ico;pdf;mp4;mkv;mov;webm;avi;mp3;wav;flac;m4a;aac;ogg;opus;aif;aiff;zip;"
 
 
@@ -31,6 +32,10 @@ def install(data_dir: Path, python: Path, app: Path) -> tuple[Path, Path]:
     command = f"{desktop_argument(python)} {desktop_argument(app)}"
     desktop = data_dir / "applications" / f"{APP_ID}.desktop"
     nemo = data_dir / "nemo" / "actions" / f"{APP_ID}.nemo_action"
+
+    icon = data_dir / "icons" / "hicolor" / "256x256" / "apps" / f"{ICON}.png"
+    icon.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(app.parent / "assets" / "uvaia.png", icon)
 
     desktop.parent.mkdir(parents=True, exist_ok=True)
     desktop.write_text(
@@ -64,6 +69,7 @@ UriScheme=file
 
 
 def remove(data_dir: Path) -> None:
+    (data_dir / "icons" / "hicolor" / "256x256" / "apps" / f"{ICON}.png").unlink(missing_ok=True)
     (data_dir / "applications" / f"{APP_ID}.desktop").unlink(missing_ok=True)
     (data_dir / "nemo" / "actions" / f"{APP_ID}.nemo_action").unlink(missing_ok=True)
 

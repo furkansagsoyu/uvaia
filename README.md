@@ -14,7 +14,7 @@ Araçlar **Görsel**, **PDF**, **Video**, **Ses** ve **Arşiv** sekmelerinde. An
 bıraktığında Uvaia ilgili sekmeyi açar. Birden fazla PDF bırakmak birleştirme
 listesini açar.
 
-Nemo'dan bir veya birden fazla görseli pencereye bırak ya da **Görsel seç…**
+Nemo'dan bir veya birden fazla görseli pencereye bırak ya da **Dosya seç…**
 düğmesini kullan.
 Çarktan **PNG**, **JPG** veya **WebP** seç. Sonuç kaynak dosyanın klasörüne
 kaydedilir. Aynı isimde bir dosya varsa numaralı bir ad kullanılır. JPG çıktısında

@@ -10,12 +10,13 @@ from pathlib import Path
 
 from PIL import Image
 from PySide6.QtCore import QPoint, Qt, QThread, QTimer, QUrl, Signal, Slot
-from PySide6.QtGui import QCloseEvent, QDesktopServices, QDragEnterEvent, QDropEvent
+from PySide6.QtGui import QCloseEvent, QDesktopServices, QDragEnterEvent, QDragLeaveEvent, QDropEvent, QIcon, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
     QDialogButtonBox,
     QFileDialog,
+    QFrame,
     QGridLayout,
     QHBoxLayout,
     QInputDialog,
@@ -76,29 +77,34 @@ from video_tools import (
 )
 from video_trim_dialog import VideoTrimDialog
 
+ICON_PATH = Path(__file__).resolve().parent / "assets" / "uvaia.png"
+
 STYLE = """
-QWidget { background: #172321; color: #eff6ed; font-size: 15px; }
-QLabel#title { font-size: 34px; font-weight: 700; }
-QLabel#status { color: #c4d6c7; }
-QLabel#dropZone {
-    border: 2px dashed #789688; border-radius: 20px; padding: 30px;
-    background: #20312c;
-}
-QPushButton { background: #2b433a; border: 2px solid transparent;
-    border-radius: 12px; padding: 10px 16px; }
-QPushButton[format="true"] { background: #eac174; color: #172321;
-    border-radius: 26px; font-weight: 700; min-height: 28px; }
+QWidget { background: #151e1c; color: #f4f1e6; font-size: 14px; }
+QLabel#title { font-size: 34px; font-weight: 750; }
+QLabel#status, QLabel#dropHint { color: #b5c6bc; }
+QLabel#dropZone { font-size: 19px; font-weight: 650; }
+QFrame#dropCard { background: #202f29; border: 1px dashed #7c9988; border-radius: 17px; }
+QFrame#dropCard[dragging="true"] { background: #2a3b30; border-color: #f4bd58; }
+QFrame#dropCard QLabel { background: transparent; }
+QPushButton { background: #263730; border: 1px solid #3d5448; border-radius: 9px;
+    min-height: 24px; padding: 8px 13px; }
+QPushButton#pick, QPushButton[format="true"] { background: #f4bd58; color: #202014;
+    border-color: #f4bd58; font-weight: 700; }
+QPushButton[format="true"] { border-radius: 19px; }
+QPushButton:hover { border-color: #f4bd58; }
+QPushButton#pick:hover, QPushButton[format="true"]:hover { background: #ffd481; }
 QPushButton:focus { border-color: #ffffff; }
-QPushButton:hover { border-color: #a1cbb4; }
-QPushButton:disabled { color: #9ba9a2; background: #283430; }
-QTabWidget::pane { border: 1px solid #3b534a; border-radius: 10px; top: -1px; }
-QTabBar::tab { padding: 10px 18px; border: 1px solid transparent;
-    border-bottom: 2px solid transparent; border-top-left-radius: 8px;
-    border-top-right-radius: 8px; color: #c4d6c7; }
-QTabBar::tab:selected { background: #2b433a; color: #eff6ed;
-    border-bottom-color: #eac174; }
-QTabBar::tab:hover { background: #20312c; }
-QTabBar::tab:focus { border-top-color: #a1cbb4; }
+QPushButton:disabled, QPushButton#pick:disabled, QPushButton[format="true"]:disabled {
+    color: #a6b3ac; background: #26312d; border-color: #3d4a44; }
+QTabWidget::pane { border: 1px solid #36483f; border-radius: 11px; }
+QTabBar::tab { padding: 9px 15px; border: 1px solid transparent;
+    border-bottom: 2px solid transparent; color: #b5c6bc; }
+QTabBar::tab:selected { color: #ffe2a4; border-bottom-color: #f4bd58; }
+QTabBar::tab:hover { background: #263730; }
+QTabBar::tab:focus { border-top-color: #b5c6bc; }
+QProgressBar { border: 1px solid #3d5448; border-radius: 7px; text-align: center; }
+QProgressBar::chunk { background: #356551; border-radius: 6px; }
 """
 
 
@@ -159,23 +165,48 @@ class Window(QWidget):
         self.monitor: WheelMonitor | None = None
         self.setWindowTitle("Uvaia")
         self.setAcceptDrops(True)
-        self.setMinimumWidth(420)
+        self.setMinimumWidth(440)
+        self.resize(570, 430)
         self.setStyleSheet(STYLE)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(28, 24, 28, 24)
         layout.setSpacing(14)
 
+        header = QHBoxLayout()
+        icon = QIcon(str(ICON_PATH))
+        self.setWindowIcon(icon)
+        brand = QLabel()
+        brand.setPixmap(icon.pixmap(48, 48))
+        header.addWidget(brand)
         title = QLabel("Uvaia")
         title.setObjectName("title")
-        layout.addWidget(title)
+        header.addWidget(title, 1)
+        layout.addLayout(header)
 
-        self.drop_zone = QLabel("Görsel, PDF, video, ses veya ZIP bırak")
+        self.drop_card = QFrame()
+        self.drop_card.setObjectName("dropCard")
+        drop_layout = QVBoxLayout(self.drop_card)
+        drop_layout.setContentsMargins(18, 19, 18, 19)
+        drop_layout.setSpacing(8)
+        self.drop_zone = QLabel("Dosyaları buraya bırak")
         self.drop_zone.setObjectName("dropZone")
         self.drop_zone.setTextFormat(Qt.TextFormat.PlainText)
         self.drop_zone.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.drop_zone.setWordWrap(True)
-        layout.addWidget(self.drop_zone)
+        drop_layout.addWidget(self.drop_zone)
+        self.drop_hint = QLabel("Görsel, PDF, video, ses ve ZIP")
+        self.drop_hint.setObjectName("dropHint")
+        self.drop_hint.setWordWrap(True)
+        self.drop_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        drop_layout.addWidget(self.drop_hint)
+        self.pick = QPushButton("Dosya seç…")
+        self.pick.setObjectName("pick")
+        self.pick.setShortcut(QKeySequence("Ctrl+O"))
+        self.pick.setToolTip("Dosya seç (Ctrl+O)")
+        self.pick.clicked.connect(self.choose_image)
+        drop_layout.addWidget(self.pick, alignment=Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.drop_card)
 
         self.tools = QTabWidget()
         self.tools.setAccessibleName("Dosya araçları")
@@ -227,10 +258,6 @@ class Window(QWidget):
 
     def build_image_tools(self) -> None:
         layout = QVBoxLayout(self.image_tab)
-        self.pick = QPushButton("Görsel seç…")
-        self.pick.clicked.connect(self.choose_image)
-        layout.addWidget(self.pick)
-
         self.wheel = QWidget()
         wheel_layout = QVBoxLayout(self.wheel)
         wheel_layout.setContentsMargins(0, 0, 0, 0)
@@ -265,88 +292,90 @@ class Window(QWidget):
         layout.addWidget(self.wheel)
         self.wheel.hide()
 
+        actions = QGridLayout()
         self.images_pdf_button = QPushButton("Görsellerden PDF…")
         self.images_pdf_button.clicked.connect(self.choose_images_for_pdf)
-        layout.addWidget(self.images_pdf_button)
+        actions.addWidget(self.images_pdf_button, 0, 0)
 
         self.qr_button = QPushButton("QR kodu oku…")
         self.qr_button.clicked.connect(self.choose_qr)
-        layout.addWidget(self.qr_button)
+        actions.addWidget(self.qr_button, 0, 1)
 
         self.image_ocr_button = QPushButton("Görseldeki yazıyı oku (OCR)…")
         self.image_ocr_button.clicked.connect(self.choose_image_ocr)
-        layout.addWidget(self.image_ocr_button)
+        actions.addWidget(self.image_ocr_button, 1, 0)
 
         self.metadata_button = QPushButton("Görsel bilgileri…")
         self.metadata_button.clicked.connect(self.choose_image_metadata)
-        layout.addWidget(self.metadata_button)
+        actions.addWidget(self.metadata_button, 1, 1)
+        layout.addLayout(actions)
         layout.addStretch()
 
     def build_pdf_tools(self) -> None:
-        layout = QVBoxLayout(self.pdf_tab)
+        layout = QGridLayout(self.pdf_tab)
         self.pdf_button = QPushButton("PDF birleştir…")
         self.pdf_button.clicked.connect(lambda: self.choose_pdfs())
-        layout.addWidget(self.pdf_button)
+        layout.addWidget(self.pdf_button, 0, 0)
 
         self.pages_button = QPushButton("PDF’den sayfa çıkar…")
         self.pages_button.clicked.connect(self.choose_pages)
-        layout.addWidget(self.pages_button)
+        layout.addWidget(self.pages_button, 0, 1)
 
         self.pdf_split_button = QPushButton("PDF’yi böl…")
         self.pdf_split_button.clicked.connect(self.choose_pdf_split)
-        layout.addWidget(self.pdf_split_button)
+        layout.addWidget(self.pdf_split_button, 1, 0)
 
         self.pdf_rotate_button = QPushButton("PDF sayfalarını döndür…")
         self.pdf_rotate_button.clicked.connect(self.choose_pdf_rotate)
-        layout.addWidget(self.pdf_rotate_button)
+        layout.addWidget(self.pdf_rotate_button, 1, 1)
 
         self.pdf_render_button = QPushButton("PDF’yi görsele dönüştür…")
         self.pdf_render_button.clicked.connect(self.choose_pdf_render)
-        layout.addWidget(self.pdf_render_button)
+        layout.addWidget(self.pdf_render_button, 2, 0)
 
         self.pdf_text_button = QPushButton("PDF’den metin çıkar…")
         self.pdf_text_button.clicked.connect(self.choose_pdf_text)
-        layout.addWidget(self.pdf_text_button)
+        layout.addWidget(self.pdf_text_button, 2, 1)
 
         self.pdf_ocr_button = QPushButton("Taranmış PDF’yi oku (OCR)…")
         self.pdf_ocr_button.clicked.connect(self.choose_pdf_ocr)
-        layout.addWidget(self.pdf_ocr_button)
+        layout.addWidget(self.pdf_ocr_button, 3, 0)
 
         self.pdf_qr_button = QPushButton("PDF’de QR kodu ara…")
         self.pdf_qr_button.clicked.connect(self.choose_pdf_qr)
-        layout.addWidget(self.pdf_qr_button)
-        layout.addStretch()
+        layout.addWidget(self.pdf_qr_button, 3, 1)
+        layout.setRowStretch(4, 1)
 
     def build_video_tools(self) -> None:
-        layout = QVBoxLayout(self.video_tab)
+        layout = QGridLayout(self.video_tab)
         self.video_convert_button = QPushButton("Videoyu dönüştür…")
         self.video_convert_button.clicked.connect(self.choose_video_conversion)
-        layout.addWidget(self.video_convert_button)
+        layout.addWidget(self.video_convert_button, 0, 0)
 
         self.video_compress_button = QPushButton("Videoyu sıkıştır…")
         self.video_compress_button.clicked.connect(self.choose_video_compression)
-        layout.addWidget(self.video_compress_button)
+        layout.addWidget(self.video_compress_button, 0, 1)
 
         self.audio_button = QPushButton("Videodan MP3 çıkar…")
         self.audio_button.clicked.connect(self.choose_video)
-        layout.addWidget(self.audio_button)
+        layout.addWidget(self.audio_button, 1, 0)
 
         self.mute_button = QPushButton("Video sesini kaldır…")
         self.mute_button.clicked.connect(self.choose_mute)
-        layout.addWidget(self.mute_button)
+        layout.addWidget(self.mute_button, 1, 1)
 
         self.frame_button = QPushButton("Videodan kare al…")
         self.frame_button.clicked.connect(self.choose_frame)
-        layout.addWidget(self.frame_button)
+        layout.addWidget(self.frame_button, 2, 0)
 
         self.trim_button = QPushButton("Videoyu kes…")
         self.trim_button.clicked.connect(self.choose_trim)
-        layout.addWidget(self.trim_button)
+        layout.addWidget(self.trim_button, 2, 1)
 
         self.video_speed_button = QPushButton("Video hızını değiştir…")
         self.video_speed_button.clicked.connect(self.choose_video_speed)
-        layout.addWidget(self.video_speed_button)
-        layout.addStretch()
+        layout.addWidget(self.video_speed_button, 3, 0)
+        layout.setRowStretch(4, 1)
 
     def build_audio_tools(self) -> None:
         layout = QVBoxLayout(self.audio_tab)
@@ -380,7 +409,7 @@ class Window(QWidget):
             return
         wheel.file_dropped.connect(self.convert_drop)
         QApplication.instance().aboutToQuit.connect(self.monitor.shutdown)
-        self.drop_zone.setText("Görsel, PDF, video, ses veya ZIP bırak. Görsel çarkı için Shift’e bas.")
+        self.drop_hint.setText("Görsel, PDF, video, ses ve ZIP · Görsel çarkı: Shift")
 
     def convert_drop(self, paths: tuple[Path, ...], output_format: str) -> None:
         if self.job is not None:
@@ -399,7 +428,7 @@ class Window(QWidget):
     def choose_image(self) -> None:
         self.set_drag_monitor_enabled(False)
         try:
-            filenames, _ = QFileDialog.getOpenFileNames(self, "Görselleri seç")
+            filenames, _ = QFileDialog.getOpenFileNames(self, "Dosya seç")
         finally:
             self.set_drag_monitor_enabled(True)
         paths = tuple(dict.fromkeys(Path(filename) for filename in filenames))
@@ -714,9 +743,20 @@ class Window(QWidget):
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
         if self.job is None and offers_file_copy(event):
+            self.set_drop_highlight(True)
             accept_copy(event)
 
+    def set_drop_highlight(self, active: bool) -> None:
+        self.drop_card.setProperty("dragging", active)
+        self.drop_card.style().unpolish(self.drop_card)
+        self.drop_card.style().polish(self.drop_card)
+
+    def dragLeaveEvent(self, event: QDragLeaveEvent) -> None:
+        self.set_drop_highlight(False)
+        super().dragLeaveEvent(event)
+
     def dropEvent(self, event: QDropEvent) -> None:
+        self.set_drop_highlight(False)
         if self.job is not None:
             return
         if self.select_files(local_drop_paths(event)):
@@ -1297,6 +1337,8 @@ def main() -> int:
 
     app = QApplication([sys.argv[0]])
     app.setApplicationName("Uvaia")
+    app.setDesktopFileName("io.github.furkansagsoyu.Uvaia")
+    app.setWindowIcon(QIcon(str(ICON_PATH)))
     window = Window()
     window.start_drag_monitor()
     window.show()
