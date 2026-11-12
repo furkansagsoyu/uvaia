@@ -33,7 +33,8 @@ from PySide6.QtWidgets import (
 from Xlib import error as x11_error
 
 from archive_tools import create_zip, extract_zip
-from audio_tools import AUDIO_EXPORT_OPTIONS, AUDIO_EXTENSIONS, convert_audio
+from audio_tools import AUDIO_EXPORT_OPTIONS, AUDIO_EXTENSIONS, convert_audio, trim_audio
+from audio_trim_dialog import AudioTrimDialog
 from compression_dialog import CompressionDialog
 from crop_dialog import CropDialog
 from drag_wheel import (
@@ -352,6 +353,10 @@ class Window(QWidget):
         self.audio_convert_button = QPushButton("Sesi dönüştür…")
         self.audio_convert_button.clicked.connect(self.choose_audio_conversion)
         layout.addWidget(self.audio_convert_button)
+
+        self.audio_trim_button = QPushButton("Sesi kes…")
+        self.audio_trim_button.clicked.connect(self.choose_audio_trim)
+        layout.addWidget(self.audio_trim_button)
         layout.addStretch()
 
     def build_archive_tools(self) -> None:
@@ -473,13 +478,13 @@ class Window(QWidget):
         self.audio_button.setText("Videodan MP3 çıkar…")
         self.clear_result()
 
-    def choose_audio_source(self) -> Path | None:
+    def choose_audio_source(self, title: str) -> Path | None:
         source = self.source
         if source is not None and source.suffix.lower() in AUDIO_EXTENSIONS:
             return source
         extensions = " ".join(f"*{ext} *{ext.upper()}" for ext in AUDIO_EXTENSIONS)
         filename, _ = QFileDialog.getOpenFileName(
-            self, "Dönüştürülecek ses dosyasını seç", filter=f"Ses ({extensions})"
+            self, title, filter=f"Ses ({extensions})"
         )
         if not filename:
             return None
@@ -492,7 +497,7 @@ class Window(QWidget):
             return
         self.set_drag_monitor_enabled(False)
         try:
-            source = self.choose_audio_source()
+            source = self.choose_audio_source("Dönüştürülecek ses dosyasını seç")
             if source is None:
                 return
             formats = list(AUDIO_EXPORT_OPTIONS)
@@ -505,6 +510,32 @@ class Window(QWidget):
                     lambda progress: convert_audio(source, output_format, progress=progress),
                     "Ses dönüştürülüyor…",
                 )
+        finally:
+            self.set_drag_monitor_enabled(self.job is None)
+
+    def choose_audio_trim(self) -> None:
+        if self.job is not None:
+            return
+        self.set_drag_monitor_enabled(False)
+        try:
+            source = self.choose_audio_source("Kesilecek ses dosyasını seç")
+            if source is None:
+                return
+            default = source.suffix.upper().lstrip(".")
+            if default not in AUDIO_EXPORT_OPTIONS:
+                default = "MP3"
+            dialog = AudioTrimDialog(source.name, default, self)
+            try:
+                if dialog.exec() == QDialog.DialogCode.Accepted and dialog.interval is not None:
+                    interval, output_format = dialog.interval, dialog.output_format.currentText()
+                    self.start_progress_job(
+                        lambda progress: trim_audio(
+                            source, interval, output_format, progress=progress
+                        ),
+                        "Ses kesiti hazırlanıyor…",
+                    )
+            finally:
+                dialog.deleteLater()
         finally:
             self.set_drag_monitor_enabled(self.job is None)
 
@@ -1236,6 +1267,7 @@ class Window(QWidget):
         self.trim_button.setEnabled(enabled)
         self.video_speed_button.setEnabled(enabled)
         self.audio_convert_button.setEnabled(enabled)
+        self.audio_trim_button.setEnabled(enabled)
         self.zip_create_button.setEnabled(enabled)
         self.zip_extract_button.setEnabled(enabled)
         self.qr_button.setEnabled(enabled)

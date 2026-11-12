@@ -214,6 +214,12 @@ Bir ses dosyasını pencereye bırak ve **Ses → Sesi dönüştür…** ile MP3
 veya FLAC seç. Çıktı kaynak klasöre kaydedilir. İlerlemeyi görebilir ve yarım
 çıktı bırakmadan işlemi iptal edebilirsin.
 
+## Sesi kesme
+
+**Ses → Sesi kes…** ile başlangıç ve bitiş zamanını gir, ardından MP3, WAV
+veya FLAC seç. `12,5` ve `00:12.500` aynı zamanı belirtir. Kesit yeni bir
+dosya olarak kaynak klasöre kaydedilir.
+
 ## ZIP arşivleri
 
 **Arşiv → ZIP oluştur…** ile seçilen dosyaları ilk dosyanın klasöründe
