@@ -1,10 +1,11 @@
-"""X11 sürüklemelerinde görsel dönüştürme çarkını açar."""
+"""X11 sürüklemelerinde dosya dönüştürme çarkını açar."""
 
 from __future__ import annotations
 
 from math import cos, radians, sin
 from pathlib import Path
 
+from PIL import Image
 from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, QTimer, Qt, Signal
 from PySide6.QtGui import (
     QColor, QCursor, QDragEnterEvent, QDragLeaveEvent, QDragMoveEvent, QDropEvent,
@@ -13,7 +14,9 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import QApplication, QWidget
 from Xlib import X, display, error
 
+from audio_tools import AUDIO_EXPORT_OPTIONS, AUDIO_EXTENSIONS
 from image_conversion import FORMATS
+from video_tools import VIDEO_EXPORT_OPTIONS, VIDEO_EXTENSIONS
 
 WHEEL_POSITIONS = ((0, 1), (2, 0), (2, 2))
 
@@ -24,15 +27,34 @@ def offers_file_copy(event: QDropEvent) -> bool:
     )
 
 
-def local_drop_paths(event: QDropEvent) -> tuple[Path, ...]:
-    """Dosya listesini yalnız bırakma olayında ister."""
-    if not offers_file_copy(event):
-        return ()
+def offered_paths(event: QDropEvent) -> tuple[Path, ...]:
     urls = event.mimeData().urls()
     if not all(url.isLocalFile() for url in urls):
         return ()
-    paths = tuple(dict.fromkeys(Path(url.toLocalFile()) for url in urls))
+    return tuple(dict.fromkeys(Path(url.toLocalFile()) for url in urls))
+
+
+def local_drop_paths(event: QDropEvent) -> tuple[Path, ...]:
+    if not offers_file_copy(event):
+        return ()
+    paths = offered_paths(event)
     return paths if all(path.is_file() for path in paths) else ()
+
+
+def wheel_formats(paths: tuple[Path, ...]) -> tuple[str, ...]:
+    if not paths:
+        return ()
+    extensions = [path.suffix.lower() for path in paths]
+    if len(paths) == 1:
+        extension = extensions[0]
+        if extension in VIDEO_EXTENSIONS:
+            return (*VIDEO_EXPORT_OPTIONS, "MP3")
+        if extension in AUDIO_EXTENSIONS:
+            return tuple(AUDIO_EXPORT_OPTIONS)
+        if extension == ".pdf":
+            return ("PNG", "JPG")
+    images = Image.registered_extensions()
+    return tuple(FORMATS) if all(extension in images for extension in extensions) else ()
 
 
 def accept_copy(event: QDropEvent) -> None:
@@ -67,8 +89,6 @@ class DragWheel(QWidget):
     SIZE = 308
     OUTER_RADIUS = 151
     INNER_RADIUS = 77
-    ANGLES = (90, 210, 330)
-    SWEEP = 112
 
     def __init__(self, icon: QIcon) -> None:
         super().__init__(
@@ -81,7 +101,7 @@ class DragWheel(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAcceptDrops(True)
-        self.setAccessibleName("Görsel dönüştürme çarkı")
+        self.setAccessibleName("Dosya dönüştürme çarkı")
         self.setFixedSize(self.SIZE, self.SIZE)
         self.setMask(QRegion(self.rect(), QRegion.RegionType.Ellipse))
         self.icon = icon.pixmap(50, 50)
@@ -89,23 +109,30 @@ class DragWheel(QWidget):
         self.highlight: str | None = None
         self.shift_held = False
         self.copy_ready = False
+        self.sectors: dict[str, tuple[float, QPainterPath]] = {}
+        self.has_offer = False
+
+    def set_formats(self, formats: tuple[str, ...]) -> None:
+        step = 360 / len(formats) if formats else 0
         self.sectors = {
-            output_format: self.sector(angle)
-            for output_format, angle in zip(FORMATS, self.ANGLES, strict=True)
+            name: (angle, self.sector(angle, step - 8))
+            for index, name in enumerate(formats)
+            for angle in (90 + index * step,)
         }
+        self.update()
 
     def circle(self, radius: float) -> QRectF:
         return QRectF(
             self.center.x() - radius, self.center.y() - radius, radius * 2, radius * 2
         )
 
-    def sector(self, angle: float) -> QPainterPath:
-        start = angle - self.SWEEP / 2
+    def sector(self, angle: float, sweep: float) -> QPainterPath:
+        start = angle - sweep / 2
         outer, inner = self.circle(self.OUTER_RADIUS), self.circle(self.INNER_RADIUS)
         path = QPainterPath()
         path.arcMoveTo(outer, start)
-        path.arcTo(outer, start, self.SWEEP)
-        path.arcTo(inner, start + self.SWEEP, -self.SWEEP)
+        path.arcTo(outer, start, sweep)
+        path.arcTo(inner, start + sweep, -sweep)
         path.closeSubpath()
         return path
 
@@ -121,7 +148,7 @@ class DragWheel(QWidget):
         painter.setFont(font)
 
         radius = (self.OUTER_RADIUS + self.INNER_RADIUS) / 2
-        for (output_format, path), angle in zip(self.sectors.items(), self.ANGLES, strict=True):
+        for output_format, (angle, path) in self.sectors.items():
             selected = self.highlight == output_format
             painter.setPen(QPen(QColor("#ff9b39" if selected else "#774a6d"), 1.5))
             painter.setBrush(QColor("#ff9b39" if selected else "#43263d"))
@@ -138,7 +165,11 @@ class DragWheel(QWidget):
         font.setPixelSize(13)
         painter.setFont(font)
         painter.setPen(QColor("#fff1db"))
-        if self.shift_held:
+        if not self.has_offer:
+            hint = "Dosyayı çarka\ngetir"
+        elif not self.sectors:
+            hint = "Uygun dönüşüm\nbulunamadı"
+        elif self.shift_held:
             hint = "Shift’i bırak\nFareyi tut"
         elif self.highlight and not self.copy_ready:
             hint = "İmleci dilimde\nbiraz oynat"
@@ -147,6 +178,8 @@ class DragWheel(QWidget):
         painter.drawText(QRectF(84, 154, 140, 43), Qt.AlignmentFlag.AlignCenter, hint)
 
     def open_near_cursor(self) -> None:
+        self.has_offer = False
+        self.set_formats(())
         self.set_highlight(None)
         cursor = QCursor.pos()
         screen = QApplication.screenAt(cursor) or QApplication.primaryScreen()
@@ -173,12 +206,14 @@ class DragWheel(QWidget):
 
     def format_at(self, position: QPointF) -> str | None:
         return next(
-            (output_format for output_format, sector in self.sectors.items() if sector.contains(position)),
+            (output_format for output_format, (_, sector) in self.sectors.items() if sector.contains(position)),
             None,
         )
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
         if event.mimeData().hasUrls():
+            self.has_offer = True
+            self.set_formats(wheel_formats(offered_paths(event)))
             self.set_highlight(self.format_at(event.position()), copy_ready=offers_file_copy(event))
             # Shift basılıyken Qt hedefi kaybetmemeli. Kopyalama koşulunu
             # hareket ve bırakma olaylarında denetle.
@@ -202,7 +237,7 @@ class DragWheel(QWidget):
     def dropEvent(self, event: QDropEvent) -> None:
         output_format = self.format_at(event.position())
         paths = local_drop_paths(event) if output_format else ()
-        if paths and output_format:
+        if output_format and output_format in wheel_formats(paths):
             accept_copy(event)
             self.hide()
             self.file_dropped.emit(paths, output_format)

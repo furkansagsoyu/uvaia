@@ -45,6 +45,7 @@ from drag_wheel import (
     accept_copy,
     local_drop_paths,
     offers_file_copy,
+    wheel_formats,
 )
 from file_order_dialog import FileOrderDialog
 from image_adjust_dialog import ImageAdjustDialog
@@ -416,21 +417,42 @@ class Window(QWidget):
             return
         wheel.file_dropped.connect(self.convert_drop)
         QApplication.instance().aboutToQuit.connect(self.monitor.shutdown)
-        self.drop_hint.setText("Görsel, PDF, video, ses ve ZIP · Görsel çarkı: Shift")
+        self.drop_hint.setText("Görsel, PDF, video, ses ve ZIP · Dönüştürme çarkı: Shift")
 
     def convert_drop(self, paths: tuple[Path, ...], output_format: str) -> None:
-        if self.job is not None:
+        if self.job is not None or output_format not in wheel_formats(paths):
             return
         self.showNormal()
         self.raise_()
-        if len(paths) == 1:
-            self.select_file(paths[0])
-            if self.wheel.isHidden():
-                self.status.setText("Format çarkı görselleri dönüştürür.")
-                return
-        elif not self.select_batch(paths):
+        if len(paths) > 1:
+            if self.select_batch(paths):
+                self.convert(output_format)
             return
-        self.convert(output_format)
+
+        source = paths[0]
+        self.select_file(source)
+        extension = source.suffix.lower()
+        if extension in VIDEO_EXTENSIONS:
+            if output_format == "MP3":
+                self.start_job(partial(extract_mp3, source), "MP3 hazırlanıyor…")
+            else:
+                self.start_progress_job(
+                    lambda progress: convert_video(source, output_format, progress=progress),
+                    "Video dönüştürülüyor…",
+                )
+        elif extension in AUDIO_EXTENSIONS:
+            self.start_progress_job(
+                lambda progress: convert_audio(source, output_format, progress=progress),
+                "Ses dönüştürülüyor…",
+            )
+        elif extension == ".pdf":
+            self.start_progress_job(
+                lambda progress: render_pdf_pages(source, "", output_format, progress=progress),
+                "PDF sayfaları görsele dönüştürülüyor…",
+                unit="sayfa",
+            )
+        else:
+            self.convert(output_format)
 
     def choose_image(self) -> None:
         self.set_drag_monitor_enabled(False)

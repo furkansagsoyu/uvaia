@@ -68,10 +68,12 @@ için aynı komuta `--remove` ekle.
 
 ## Sürüklerken çarkı açma
 
-Uvaia açıkken Nemo'da seçili görselleri sol tuşla sürüklemeye başla. **Shift**'e basınca
-işlem çarkı imlecin etrafında açılır. Fareyi basılı tutarken **Shift’i bırak**,
-ardından görselleri **PNG**, **JPG** veya **WebP** diliminin üstüne bırak.
-Shift’i dilimin üzerindeyken bıraktıysan fare tuşunu bırakmadan imleci biraz oynat.
+Uvaia açıkken Nemo’da bir dosyayı veya birden fazla görseli sürükle. **Shift**
+ile çarkı aç. Fareyi basılı tutarken **Shift’i bırak**, imleci istediğin
+dilime götür ve dosyayı bırak. Çark görseller için PNG/JPG/WebP, videolar
+için MP4/WebM/MP3, ses için MP3/WAV/FLAC, PDF için PNG/JPG sunar.
+PDF dönüştürmede her sayfa ayrı bir görsel olarak kaydedilir.
+Shift’i dilimin üzerindeyken bıraktıysan imleci biraz oynat.
 Nemo, Shift basılıyken taşıma işlemi sunar. Uvaia, kaynak dosyayı korumak için
 yalnızca kopyalama işlemini kabul eder. Sürüklemeyi iptal edersen çark kapanır.
 
