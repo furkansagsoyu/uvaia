@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from video_preview import FramePreview
+from media_timeline import MediaTimeline
 from video_tools import format_timestamp, parse_clip_range
 
 
@@ -43,6 +44,9 @@ class VideoTrimDialog(QDialog):
         form.addRow("&Başlangıç", self.start)
         form.addRow("B&itiş", self.end)
         layout.addLayout(form)
+        self.timeline = MediaTimeline(source, self.start, self.end, video=True)
+        layout.addWidget(self.timeline)
+        self.finished.connect(self.timeline.player.stop)
 
         self.hint = QLabel()
         self.hint.setWordWrap(True)

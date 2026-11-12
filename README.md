@@ -240,3 +240,27 @@ eklenir. İptal edilen ZIP işlemlerinin yarım çıktıları temizlenir.
 ZIP açma, en fazla 10.000 öğe ve 8 GiB açılmış içerik kabul eder.
 Nemo sağ tık menüsüne ZIP ve ses dosyası desteği eklemek için `install_desktop.py` komutunu
 yeniden çalıştırabilirsin.
+
+
+## Oynatarak kesme ve birleştirme
+
+**Videoyu kes…** ve **Sesi kes…** pencerelerinde dosyayı veya yalnızca seçilen
+kesiti oynatabilirsin. Başlangıç ve bitiş tutamaçları zaman alanlarını günceller.
+**Videoları birleştir…** klipleri en-boy oranını koruyarak 720p MP4’e,
+**Sesleri birleştir…** dosyaları 48 kHz stereo WAV’a dönüştürüp listede
+belirlediğin sırada birleştirir.
+
+## Görsel işaretleme ve PDF düzenleme
+
+**Görseli işaretle…** ile ok, kutu, metin ve opak siyah alan ekleyebilirsin.
+**Gizle** aracı seçili pikselleri siyahla değiştirir. Sonuç yeni bir PNG’dir.
+**Sayfaları düzenle…** ile PDF küçük resimlerini sürükleyerek sırala, seçili
+sayfaları döndür veya çıkar ve yeni PDF olarak kaydet.
+
+## Mint için .deb
+
+Hazır `.deb` dosyasını Cinnamon’da paket yükleyiciyle açabilir veya
+`sudo apt install ./uvaia_0.1.0_amd64.deb` ile kurabilirsin.
+
+Paketi kaynak koddan üretmek için sanal ortama `pyinstaller` kur ve
+`tools/build_deb.sh` çalıştır. Dosya `dist/` klasörüne yazılır.

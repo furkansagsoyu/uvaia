@@ -51,13 +51,16 @@ from drag_wheel import (
 from file_order_dialog import FileOrderDialog
 from image_adjust_dialog import ImageAdjustDialog
 from image_conversion import FORMATS, adjust_image, compress_image, convert_image, convert_images
+from image_markup import MarkupDialog, save_markup
 from image_metadata import inspect_image, save_clean_png
 from image_preview import read_preview_image, to_qimage
+from media_join import join_media
 from job_progress import JobCancelled, JobProgress
 from ocr_tools import OCR_DPI, OCR_EXPORT_FORMATS, ocr_image, ocr_pdf
 from orientation_dialog import OrientationDialog
 from output_files import SavedOutputs
 from pdf_export_dialog import PdfExportDialog
+from pdf_organizer import PdfOrganizer, organize_pdf
 from pdf_render import DPI, render_pdf_pages
 from pdf_rotate_dialog import PdfRotateDialog
 from pdf_split_dialog import PdfSplitDialog
@@ -296,7 +299,10 @@ class Window(QWidget):
         editing.addWidget(self.orientation_button, 1, 1)
         self.adjust_button = QPushButton("Görsel ayarları…")
         self.adjust_button.clicked.connect(self.choose_image_adjustments)
-        editing.addWidget(self.adjust_button, 2, 0, 1, 2)
+        editing.addWidget(self.adjust_button, 2, 0)
+        self.markup_button = QPushButton("Görseli işaretle…")
+        self.markup_button.clicked.connect(self.choose_markup)
+        editing.addWidget(self.markup_button, 2, 1)
         wheel_layout.addLayout(editing)
         layout.addWidget(self.wheel)
         self.wheel.hide()
@@ -353,7 +359,10 @@ class Window(QWidget):
         self.pdf_qr_button = QPushButton("PDF’de QR kodu ara…")
         self.pdf_qr_button.clicked.connect(self.choose_pdf_qr)
         layout.addWidget(self.pdf_qr_button, 3, 1)
-        layout.setRowStretch(4, 1)
+        self.pdf_organize_button = QPushButton("Sayfaları düzenle…")
+        self.pdf_organize_button.clicked.connect(self.choose_pdf_organize)
+        layout.addWidget(self.pdf_organize_button, 4, 1)
+        layout.setRowStretch(5, 1)
 
     def build_video_tools(self) -> None:
         layout = QGridLayout(self.video_tab)
@@ -384,7 +393,10 @@ class Window(QWidget):
         self.video_speed_button = QPushButton("Video hızını değiştir…")
         self.video_speed_button.clicked.connect(self.choose_video_speed)
         layout.addWidget(self.video_speed_button, 3, 0)
-        layout.setRowStretch(4, 1)
+        self.video_join_button = QPushButton("Videoları birleştir…")
+        self.video_join_button.clicked.connect(lambda: self.choose_media_join(video=True))
+        layout.addWidget(self.video_join_button, 4, 0)
+        layout.setRowStretch(5, 1)
 
     def build_audio_tools(self) -> None:
         layout = QVBoxLayout(self.audio_tab)
@@ -395,6 +407,9 @@ class Window(QWidget):
         self.audio_trim_button = QPushButton("Sesi kes…")
         self.audio_trim_button.clicked.connect(self.choose_audio_trim)
         layout.addWidget(self.audio_trim_button)
+        self.audio_join_button = QPushButton("Sesleri birleştir…")
+        self.audio_join_button.clicked.connect(lambda: self.choose_media_join(video=False))
+        layout.addWidget(self.audio_join_button)
         layout.addStretch()
 
     def build_archive_tools(self) -> None:
@@ -519,6 +534,7 @@ class Window(QWidget):
         self.compress_button.hide()
         self.orientation_button.hide()
         self.adjust_button.hide()
+        self.markup_button.hide()
         self.audio_button.setText("Videodan MP3 çıkar…")
         self.clear_result()
         return True
@@ -544,6 +560,7 @@ class Window(QWidget):
         self.compress_button.show()
         self.orientation_button.show()
         self.adjust_button.show()
+        self.markup_button.show()
         self.tools.setCurrentWidget(self.image_tab)
         self.drop_zone.setText(source.name)
         self.wheel.show()
@@ -612,7 +629,7 @@ class Window(QWidget):
             default = source.suffix.upper().lstrip(".")
             if default not in AUDIO_EXPORT_OPTIONS:
                 default = "MP3"
-            dialog = AudioTrimDialog(source.name, default, self)
+            dialog = AudioTrimDialog(source, default, self)
             try:
                 if dialog.exec() == QDialog.DialogCode.Accepted and dialog.interval is not None:
                     interval, output_format = dialog.interval, dialog.output_format.currentText()
@@ -625,6 +642,30 @@ class Window(QWidget):
             finally:
                 dialog.deleteLater()
         finally:
+            self.set_drag_monitor_enabled(self.job is None)
+
+    def choose_media_join(self, *, video: bool) -> None:
+        if self.job is not None:
+            return
+        extensions = VIDEO_EXTENSIONS if video else AUDIO_EXTENSIONS
+        title = "Videoları birleştir" if video else "Sesleri birleştir"
+        patterns = " ".join(f"*{ext} *{ext.upper()}" for ext in extensions)
+        initial = (self.source,) if self.source and self.source.suffix.lower() in extensions else ()
+        dialog = FileOrderDialog(
+            self, title=title, hint="Dosyalar listedeki sırayla birleştirilir.",
+            add_label="Dosya ekle…", save_label="Birleştir",
+            file_filter=f"Medya ({patterns})", minimum=2, initial=initial,
+        )
+        self.set_drag_monitor_enabled(False)
+        try:
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                paths = dialog.paths()
+                self.start_progress_job(
+                    lambda progress: join_media(paths, video=video, progress=progress),
+                    "Dosyalar birleştiriliyor…", unit="dosya",
+                )
+        finally:
+            dialog.deleteLater()
             self.set_drag_monitor_enabled(self.job is None)
 
     def choose_zip_create(self) -> None:
@@ -848,6 +889,22 @@ class Window(QWidget):
         except (OSError, ValueError) as error:
             self.status.setText(f"Önizleme açılamadı: {error}")
         return None
+
+    def choose_markup(self) -> None:
+        source = self.source
+        if source is None or self.job is not None:
+            return
+        image = self.image_preview(source)
+        if image is None:
+            return
+        self.set_drag_monitor_enabled(False)
+        dialog = MarkupDialog(image, self)
+        try:
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                self.start_job(partial(save_markup, source, dialog.marks), "Görsel kaydediliyor…")
+        finally:
+            dialog.deleteLater()
+            self.set_drag_monitor_enabled(self.job is None)
 
     def choose_crop(self) -> None:
         source = self.source
@@ -1169,6 +1226,29 @@ class Window(QWidget):
         finally:
             self.set_drag_monitor_enabled(self.job is None)
 
+    def choose_pdf_organize(self) -> None:
+        if self.job is not None:
+            return
+        self.set_drag_monitor_enabled(False)
+        try:
+            source = self.choose_pdf_source()
+            if source is None:
+                return
+            try:
+                dialog = PdfOrganizer(source, self)
+            except (OSError, ValueError) as error:
+                self.status.setText(str(error))
+                return
+            try:
+                if dialog.exec() == QDialog.DialogCode.Accepted:
+                    pages = dialog.pages()
+                    self.start_job(partial(organize_pdf, source, pages), "PDF düzenleniyor…")
+            finally:
+                dialog.close_document()
+                dialog.deleteLater()
+        finally:
+            self.set_drag_monitor_enabled(self.job is None)
+
     def choose_pdf_rotate(self) -> None:
         if self.job is not None:
             return
@@ -1353,6 +1433,7 @@ class Window(QWidget):
         self.pages_button.setEnabled(enabled)
         self.pdf_split_button.setEnabled(enabled)
         self.pdf_rotate_button.setEnabled(enabled)
+        self.pdf_organize_button.setEnabled(enabled)
         self.pdf_render_button.setEnabled(enabled)
         self.pdf_text_button.setEnabled(enabled)
         self.pdf_ocr_button.setEnabled(enabled)
@@ -1365,6 +1446,8 @@ class Window(QWidget):
         self.frame_button.setEnabled(enabled)
         self.trim_button.setEnabled(enabled)
         self.video_speed_button.setEnabled(enabled)
+        self.video_join_button.setEnabled(enabled)
+        self.audio_join_button.setEnabled(enabled)
         self.audio_convert_button.setEnabled(enabled)
         self.audio_trim_button.setEnabled(enabled)
         self.zip_create_button.setEnabled(enabled)

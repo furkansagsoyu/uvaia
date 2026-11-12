@@ -2,24 +2,27 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox, QDialog, QDialogButtonBox, QFormLayout, QLabel, QLineEdit, QVBoxLayout, QWidget,
 )
 
 from audio_tools import AUDIO_EXPORT_OPTIONS
+from media_timeline import MediaTimeline
 from video_tools import format_timestamp, parse_clip_range
 
 
 class AudioTrimDialog(QDialog):
-    def __init__(self, filename: str, default_format: str, parent: QWidget) -> None:
+    def __init__(self, source: Path, default_format: str, parent: QWidget) -> None:
         super().__init__(parent)
         self.setWindowTitle("Sesi kes")
         self.setMinimumWidth(360)
         self.interval: tuple[int, int] | None = None
 
         layout = QVBoxLayout(self)
-        name = QLabel(filename)
+        name = QLabel(source.name)
         name.setTextFormat(Qt.TextFormat.PlainText)
         name.setWordWrap(True)
         layout.addWidget(name)
@@ -35,6 +38,9 @@ class AudioTrimDialog(QDialog):
         self.output_format.setCurrentText(default_format)
         form.addRow("&Çıktı biçimi", self.output_format)
         layout.addLayout(form)
+        self.timeline = MediaTimeline(source, self.start, self.end, video=False)
+        layout.addWidget(self.timeline)
+        self.finished.connect(self.timeline.player.stop)
 
         self.hint = QLabel()
         self.hint.setWordWrap(True)
