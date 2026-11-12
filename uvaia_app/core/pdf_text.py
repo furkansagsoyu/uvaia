@@ -9,9 +9,9 @@ from typing import BinaryIO
 
 from pypdfium2 import PdfDocument, PdfiumError
 
-from job_progress import JobProgress, tracked_items
-from output_files import save_new_file
-from pdf_render import open_pdf_document, page_indices
+from uvaia_app.core.job_progress import JobProgress, tracked_items
+from uvaia_app.core.output_files import save_new_file
+from uvaia_app.core.pdf_render import open_pdf_document, page_indices
 
 
 def save_pdf_text(

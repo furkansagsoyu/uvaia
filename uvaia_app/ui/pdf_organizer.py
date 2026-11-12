@@ -10,10 +10,10 @@ from PySide6.QtGui import QIcon, QPixmap, QTransform
 from PySide6.QtWidgets import QAbstractItemView, QDialog, QDialogButtonBox, QHBoxLayout, QLabel, QListView, QListWidget, QListWidgetItem, QPushButton, QVBoxLayout, QWidget
 from pypdf import PdfWriter
 
-from image_preview import to_qimage
-from output_files import save_new_file
-from pdf_render import open_pdf_document, page_image
-from pdf_tools import read_pdf
+from uvaia_app.ui.image_preview import to_qimage
+from uvaia_app.core.output_files import save_new_file
+from uvaia_app.core.pdf_render import open_pdf_document, page_image
+from uvaia_app.core.pdf_tools import read_pdf
 
 PAGE = Qt.ItemDataRole.UserRole
 ROTATION = Qt.ItemDataRole.UserRole + 1

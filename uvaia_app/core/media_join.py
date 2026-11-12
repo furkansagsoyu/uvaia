@@ -6,9 +6,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import BinaryIO
 
-from job_progress import JobProgress, tracked_items
-from output_files import save_new_file
-from video_tools import ffmpeg_command, format_timestamp, probe_media_duration, run_ffmpeg_process
+from uvaia_app.core.job_progress import JobProgress, tracked_items
+from uvaia_app.core.output_files import save_new_file
+from uvaia_app.core.video_tools import ffmpeg_command, format_timestamp, probe_media_duration, run_ffmpeg_process
 
 
 def join_media(sources: list[Path], *, video: bool, progress: JobProgress) -> Path:

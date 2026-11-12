@@ -17,8 +17,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from video_preview import FramePreview
-from video_tools import timestamp_milliseconds
+from uvaia_app.ui.video_preview import FramePreview
+from uvaia_app.core.video_tools import timestamp_milliseconds
 
 
 class VideoFrameDialog(QDialog):

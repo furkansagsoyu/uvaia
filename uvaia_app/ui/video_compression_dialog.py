@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QComboBox, QDialog, QDialogButtonBox, QFormLayout, QLabel, QVBoxLayout, QWidget,
 )
 
-from video_tools import VideoCompression
+from uvaia_app.core.video_tools import VideoCompression
 
 
 class VideoCompressionDialog(QDialog):

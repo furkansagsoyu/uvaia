@@ -11,9 +11,9 @@ from pathlib import Path
 from pypdf import PdfReader, PdfWriter
 from pypdf.errors import PdfReadError
 
-from image_conversion import flatten_on_white, read_still_image
-from job_progress import JobCancelled, JobProgress, tracked_items
-from output_files import SavedOutputs, save_new_file
+from uvaia_app.core.image_conversion import flatten_on_white, read_still_image
+from uvaia_app.core.job_progress import JobCancelled, JobProgress, tracked_items
+from uvaia_app.core.output_files import SavedOutputs, save_new_file
 
 PAGE_RANGE = re.compile(r"([0-9]{1,10})(?:\s*[-–]\s*([0-9]{1,10}))?")
 

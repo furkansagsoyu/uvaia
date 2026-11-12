@@ -7,7 +7,7 @@ from pathlib import Path
 
 from PIL import ExifTags, Image, ImageCms, ImageOps
 
-from output_files import save_new_file
+from uvaia_app.core.output_files import save_new_file
 
 ICC_MODES = {"RGB": "RGB", "GRAY": "L", "CMYK": "CMYK", "Lab": "LAB"}
 

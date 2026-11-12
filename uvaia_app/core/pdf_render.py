@@ -10,10 +10,10 @@ from pathlib import Path
 import pypdfium2 as pdfium
 from PIL import Image
 
-from image_conversion import FORMATS
-from job_progress import JobCancelled, JobProgress, tracked_items
-from output_files import SavedOutputs, save_new_file
-from pdf_tools import parse_pages
+from uvaia_app.core.image_conversion import FORMATS
+from uvaia_app.core.job_progress import JobCancelled, JobProgress, tracked_items
+from uvaia_app.core.output_files import SavedOutputs, save_new_file
+from uvaia_app.core.pdf_tools import parse_pages
 
 DPI = 144
 SCALE = DPI / 72

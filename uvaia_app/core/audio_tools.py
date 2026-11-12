@@ -5,9 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import BinaryIO
 
-from job_progress import JobProgress
-from output_files import save_new_file
-from video_tools import (
+from uvaia_app.core.job_progress import JobProgress
+from uvaia_app.core.output_files import save_new_file
+from uvaia_app.core.video_tools import (
     ffmpeg_command, format_timestamp, probe_media_duration, run_ffmpeg, run_ffmpeg_process,
 )
 

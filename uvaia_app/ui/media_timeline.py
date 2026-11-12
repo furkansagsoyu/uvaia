@@ -9,7 +9,7 @@ from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PySide6.QtMultimediaWidgets import QVideoWidget
 from PySide6.QtWidgets import QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSlider, QVBoxLayout, QWidget
 
-from video_tools import format_timestamp, parse_clip_range
+from uvaia_app.core.video_tools import format_timestamp, parse_clip_range
 
 
 class MediaTimeline(QWidget):

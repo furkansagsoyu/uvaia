@@ -15,8 +15,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from image_conversion import ImageAdjustments
-from image_preview import ImagePreview, to_qimage
+from uvaia_app.core.image_conversion import ImageAdjustments
+from uvaia_app.ui.image_preview import ImagePreview, to_qimage
 
 ADJUSTMENT_LABELS = ("Parlaklık", "Kontrast", "Doygunluk")
 

@@ -9,8 +9,8 @@ from tempfile import TemporaryDirectory
 from typing import BinaryIO
 from zipfile import ZIP_DEFLATED, BadZipFile, ZipFile, ZipInfo
 
-from job_progress import JobProgress, tracked_items
-from output_files import save_new_file
+from uvaia_app.core.job_progress import JobProgress, tracked_items
+from uvaia_app.core.output_files import save_new_file
 
 MAX_MEMBERS = 10_000
 MAX_EXPANDED_BYTES = 8 * 1024 ** 3

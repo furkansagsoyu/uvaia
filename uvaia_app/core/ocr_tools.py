@@ -15,11 +15,11 @@ from pypdf import PdfReader, PdfWriter
 from pypdf.errors import PdfReadError
 from pypdfium2 import PdfDocument
 
-from image_conversion import flatten_on_white, read_still_image
-from job_progress import JobCancelled, JobProgress, tracked_items
-from output_files import save_new_file
-from pdf_render import open_pdf_document, page_image, page_indices
-from pdf_text import save_pdf_text
+from uvaia_app.core.image_conversion import flatten_on_white, read_still_image
+from uvaia_app.core.job_progress import JobCancelled, JobProgress, tracked_items
+from uvaia_app.core.output_files import save_new_file
+from uvaia_app.core.pdf_render import open_pdf_document, page_image, page_indices
+from uvaia_app.core.pdf_text import save_pdf_text
 
 OCR_DPI = 300
 OCR_LANGUAGES = ("tur", "eng")

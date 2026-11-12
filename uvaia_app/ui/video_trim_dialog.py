@@ -18,9 +18,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from video_preview import FramePreview
-from media_timeline import MediaTimeline
-from video_tools import format_timestamp, parse_clip_range
+from uvaia_app.ui.video_preview import FramePreview
+from uvaia_app.ui.media_timeline import MediaTimeline
+from uvaia_app.core.video_tools import format_timestamp, parse_clip_range
 
 
 class VideoTrimDialog(QDialog):

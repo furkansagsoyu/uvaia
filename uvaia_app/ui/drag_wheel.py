@@ -14,9 +14,9 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import QApplication, QWidget
 from Xlib import X, display, error
 
-from audio_tools import AUDIO_EXPORT_OPTIONS, AUDIO_EXTENSIONS
-from image_conversion import FORMATS
-from video_tools import VIDEO_EXPORT_OPTIONS, VIDEO_EXTENSIONS
+from uvaia_app.core.audio_tools import AUDIO_EXPORT_OPTIONS, AUDIO_EXTENSIONS
+from uvaia_app.core.image_conversion import FORMATS
+from uvaia_app.core.video_tools import VIDEO_EXPORT_OPTIONS, VIDEO_EXTENSIONS
 
 IMAGE_TOOLS = (
     "Kırp", "Sıkıştır", "Döndür", "Boyutlandır", "Renk ayarı", "İşaretle",

@@ -14,8 +14,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from image_conversion import Orientation
-from image_preview import ImagePreview
+from uvaia_app.core.image_conversion import Orientation
+from uvaia_app.ui.image_preview import ImagePreview
 
 
 class OrientationDialog(QDialog):

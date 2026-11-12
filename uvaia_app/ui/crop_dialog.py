@@ -6,7 +6,7 @@ from PySide6.QtCore import QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QColor, QImage, QMouseEvent, QPaintEvent, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QDialog, QDialogButtonBox, QLabel, QVBoxLayout, QWidget
 
-from image_conversion import CropBounds
+from uvaia_app.core.image_conversion import CropBounds
 
 SELECTION_COLOR = QColor("#ffc447")
 

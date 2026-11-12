@@ -8,8 +8,8 @@ from pathlib import Path
 import zxingcpp
 from PIL import Image
 
-from image_conversion import flatten_on_white, read_still_image
-from pdf_render import open_pdf_document, page_image, page_indices
+from uvaia_app.core.image_conversion import flatten_on_white, read_still_image
+from uvaia_app.core.pdf_render import open_pdf_document, page_image, page_indices
 
 
 def decode_qr_codes(image: Image.Image) -> list[str]:

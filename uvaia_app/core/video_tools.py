@@ -14,8 +14,8 @@ from typing import BinaryIO
 
 from imageio_ffmpeg import get_ffmpeg_exe
 
-from job_progress import JobProgress
-from output_files import save_new_file
+from uvaia_app.core.job_progress import JobProgress
+from uvaia_app.core.output_files import save_new_file
 
 VIDEO_CONTAINERS = {".mp4": "mp4", ".mkv": "matroska", ".mov": "mov", ".webm": "webm", ".avi": "avi", ".wmv": "asf"}
 VIDEO_EXTENSIONS = tuple(VIDEO_CONTAINERS)

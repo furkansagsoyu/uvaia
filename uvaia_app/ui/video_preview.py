@@ -8,7 +8,7 @@ from PySide6.QtCore import Qt, QThread, Signal, Slot
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QLabel, QWidget
 
-from video_tools import preview_frame
+from uvaia_app.core.video_tools import preview_frame
 
 
 class FramePreviewJob(QThread):

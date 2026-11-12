@@ -8,8 +8,8 @@ from typing import BinaryIO
 
 from PIL import Image, ImageEnhance, ImageOps
 
-from job_progress import JobCancelled, JobProgress, tracked_items
-from output_files import SavedOutputs, save_new_file
+from uvaia_app.core.job_progress import JobCancelled, JobProgress, tracked_items
+from uvaia_app.core.output_files import SavedOutputs, save_new_file
 
 FORMATS = {"PNG": ".png", "JPG": ".jpg", "WebP": ".webp", "TIFF": ".tiff", "BMP": ".bmp", "AVIF": ".avif"}
 SOURCE_FORMATS = {"PNG": "PNG", "JPEG": "JPG", "WEBP": "WebP"}

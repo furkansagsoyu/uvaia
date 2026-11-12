@@ -9,10 +9,10 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 from PySide6.QtWidgets import QComboBox, QDialog, QDialogButtonBox, QHBoxLayout, QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget
 
-from crop_dialog import CropPreview
-from image_conversion import read_still_image
-from image_preview import to_qimage
-from output_files import save_new_file
+from uvaia_app.ui.crop_dialog import CropPreview
+from uvaia_app.core.image_conversion import read_still_image
+from uvaia_app.ui.image_preview import to_qimage
+from uvaia_app.core.output_files import save_new_file
 
 
 @dataclass(frozen=True)

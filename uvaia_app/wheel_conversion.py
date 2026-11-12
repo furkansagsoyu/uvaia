@@ -6,15 +6,15 @@ from pathlib import Path
 
 from PIL import Image
 
-from audio_tools import convert_audio
-from drag_wheel import shared_family
-from image_conversion import convert_image
-from job_progress import JobCancelled, JobProgress
-from output_files import SavedOutputs
-from pdf_render import render_pdf_pages
-from pdf_text import extract_pdf_text
-from pdf_tools import images_to_pdf
-from video_tools import convert_video
+from uvaia_app.core.audio_tools import convert_audio
+from uvaia_app.ui.drag_wheel import shared_family
+from uvaia_app.core.image_conversion import convert_image
+from uvaia_app.core.job_progress import JobCancelled, JobProgress
+from uvaia_app.core.output_files import SavedOutputs
+from uvaia_app.core.pdf_render import render_pdf_pages
+from uvaia_app.core.pdf_text import extract_pdf_text
+from uvaia_app.core.pdf_tools import images_to_pdf
+from uvaia_app.core.video_tools import convert_video
 
 
 def convert_drop_files(

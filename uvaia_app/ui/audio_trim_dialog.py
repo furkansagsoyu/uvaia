@@ -9,9 +9,9 @@ from PySide6.QtWidgets import (
     QComboBox, QDialog, QDialogButtonBox, QFormLayout, QLabel, QLineEdit, QVBoxLayout, QWidget,
 )
 
-from audio_tools import AUDIO_EXPORT_OPTIONS
-from media_timeline import MediaTimeline
-from video_tools import format_timestamp, parse_clip_range
+from uvaia_app.core.audio_tools import AUDIO_EXPORT_OPTIONS
+from uvaia_app.ui.media_timeline import MediaTimeline
+from uvaia_app.core.video_tools import format_timestamp, parse_clip_range
 
 
 class AudioTrimDialog(QDialog):

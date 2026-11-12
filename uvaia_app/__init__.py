@@ -1,0 +1,1 @@
+"""Uvaia masaüstü uygulaması."""
