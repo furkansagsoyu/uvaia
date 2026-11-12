@@ -409,7 +409,7 @@ class Window(QWidget):
     def start_drag_monitor(self) -> None:
         if QApplication.platformName() != "xcb":
             return
-        wheel = DragWheel(STYLE)
+        wheel = DragWheel(QIcon(str(ICON_PATH)))
         try:
             self.monitor = WheelMonitor(self, wheel)
         except x11_error.DisplayError:
